@@ -182,7 +182,7 @@ export const OneOnOneChat = ({
             {messages.map((message, index) => {
               const prevMessage = index > 0 ? messages[index - 1] : null
               const showHeader = !prevMessage || prevMessage.sender_id !== message.sender_id
-              const isOwnMessage = message.sender_id === conversation.other_user.id
+              const isOwnMessage = message.sender_id !== conversation.other_user.id
 
               return (
                 <div
@@ -198,7 +198,7 @@ export const OneOnOneChat = ({
                       },
                       createdAt: message.created_at
                     }}
-                    isOwnMessage={!isOwnMessage}
+                    isOwnMessage={isOwnMessage}
                     showHeader={showHeader}
                   />
                 </div>
