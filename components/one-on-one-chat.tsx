@@ -193,7 +193,11 @@ export const OneOnOneChat = ({
                 senderId: message.sender_id,
                 senderUsername: message.sender.username,
                 currentUserId: user?.id,
-                isOwnMessage
+                isOwnMessage,
+                // Debug: show the actual values
+                'sender.id': message.sender.id,
+                'user.id': user?.id,
+                'comparison': `${message.sender_id} === ${user?.id} = ${message.sender_id === user?.id}`
               })
 
               return (
