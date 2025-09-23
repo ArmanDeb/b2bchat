@@ -2,7 +2,6 @@
 
 import { useOneOnOneChat } from '@/hooks/use-one-on-one-chat'
 import { useChatScroll } from '@/hooks/use-chat-scroll'
-import { useUser } from '@/hooks/use-user'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Send, ArrowLeft, MoreVertical } from 'lucide-react'
@@ -23,7 +22,6 @@ export const OneOnOneChat = ({
   onBack 
 }: OneOnOneChatProps) => {
   const { containerRef, scrollToBottom } = useChatScroll()
-  const { user } = useUser()
   const {
     messages,
     conversation,
@@ -184,21 +182,7 @@ export const OneOnOneChat = ({
             {messages.map((message, index) => {
               const prevMessage = index > 0 ? messages[index - 1] : null
               const showHeader = !prevMessage || prevMessage.sender_id !== message.sender_id
-              // Compare with the current user's ID from the conversation context
-              const isOwnMessage = message.sender_id === user?.id
-              
-              console.log('Rendering message:', {
-                messageId: message.id,
-                content: message.content,
-                senderId: message.sender_id,
-                senderUsername: message.sender.username,
-                currentUserId: user?.id,
-                isOwnMessage,
-                // Debug: show the actual values
-                'sender.id': message.sender.id,
-                'user.id': user?.id,
-                'comparison': `${message.sender_id} === ${user?.id} = ${message.sender_id === user?.id}`
-              })
+              const isOwnMessage = message.sender_id === conversation.other_user.id
 
               return (
                 <div
@@ -214,7 +198,7 @@ export const OneOnOneChat = ({
                       },
                       createdAt: message.created_at
                     }}
-                    isOwnMessage={isOwnMessage}
+                    isOwnMessage={!isOwnMessage}
                     showHeader={showHeader}
                   />
                 </div>

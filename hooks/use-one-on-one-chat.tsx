@@ -127,26 +127,21 @@ export function useOneOnOneChat({ conversationId, otherUserId }: UseOneOnOneChat
       if (error) throw error
 
       if (data) {
-        console.log('Loaded messages:', data)
-        const formattedMessages: ChatMessage[] = data.map(msg => {
-          console.log('Processing message:', msg, 'Sender:', msg.sender)
-          return {
-            id: msg.id,
-            content: msg.content,
-            sender_id: msg.sender_id,
-            conversation_id: msg.conversation_id,
-            message_type: msg.message_type,
-            is_read: msg.is_read,
-            created_at: msg.created_at,
-            sender: {
-              id: msg.sender.id,
-              username: msg.sender.username,
-              display_name: msg.sender.display_name,
-              avatar_url: msg.sender.avatar_url
-            }
+        const formattedMessages: ChatMessage[] = data.map(msg => ({
+          id: msg.id,
+          content: msg.content,
+          sender_id: msg.sender_id,
+          conversation_id: msg.conversation_id,
+          message_type: msg.message_type,
+          is_read: msg.is_read,
+          created_at: msg.created_at,
+          sender: {
+            id: msg.sender.id,
+            username: msg.sender.username,
+            display_name: msg.sender.display_name,
+            avatar_url: msg.sender.avatar_url
           }
-        })
-        console.log('Formatted messages:', formattedMessages)
+        }))
         setMessages(formattedMessages)
       }
     } catch (err) {
@@ -175,33 +170,24 @@ export function useOneOnOneChat({ conversationId, otherUserId }: UseOneOnOneChat
 
       if (error) throw error
 
-      // Fetch the sender details from the users table
-      const { data: senderData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      if (senderData) {
-        // Add the new message to local state immediately
-        const newMessage: ChatMessage = {
-          id: data.id,
-          content: data.content,
-          sender_id: data.sender_id,
-          conversation_id: data.conversation_id,
-          message_type: data.message_type,
-          is_read: data.is_read,
-          created_at: data.created_at,
-          sender: {
-            id: senderData.id,
-            username: senderData.username,
-            display_name: senderData.display_name,
-            avatar_url: senderData.avatar_url
-          }
+      // Add the new message to local state immediately
+      const newMessage: ChatMessage = {
+        id: data.id,
+        content: data.content,
+        sender_id: data.sender_id,
+        conversation_id: data.conversation_id,
+        message_type: data.message_type,
+        is_read: data.is_read,
+        created_at: data.created_at,
+        sender: {
+          id: user.id,
+          username: user.user_metadata?.username || user.email || 'Unknown',
+          display_name: user.user_metadata?.display_name,
+          avatar_url: user.user_metadata?.avatar_url
         }
-
-        setMessages(prev => [...prev, newMessage])
       }
+
+      setMessages(prev => [...prev, newMessage])
     } catch (err) {
       console.error('Error sending message:', err)
       setError('Failed to send message')
