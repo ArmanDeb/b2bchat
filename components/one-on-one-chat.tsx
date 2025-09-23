@@ -186,6 +186,15 @@ export const OneOnOneChat = ({
               const showHeader = !prevMessage || prevMessage.sender_id !== message.sender_id
               // Compare with the current user's ID from the conversation context
               const isOwnMessage = message.sender_id === user?.id
+              
+              console.log('Rendering message:', {
+                messageId: message.id,
+                content: message.content,
+                senderId: message.sender_id,
+                senderUsername: message.sender.username,
+                currentUserId: user?.id,
+                isOwnMessage
+              })
 
               return (
                 <div
