@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { ChatInterface } from "@/components/chat-interface";
+import { OneOnOneChatInterface } from "@/components/one-on-one-chat-interface";
 
 export default async function ProtectedPage() {
   const supabase = await createClient();
@@ -16,7 +16,7 @@ export default async function ProtectedPage() {
 
   return (
     <div className="h-screen w-full">
-      <ChatInterface username={username} />
+      <OneOnOneChatInterface username={username} />
     </div>
   );
 }
