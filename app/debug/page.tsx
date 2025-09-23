@@ -14,13 +14,27 @@ export default function DebugPage() {
 
   const testLogin = async () => {
     setLoading(true)
-    setResult('Testing login...')
+    setResult('Testing login...\n')
+    
+    // First check environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    setResult(prev => prev + `Environment Check:\n`)
+    setResult(prev => prev + `NEXT_PUBLIC_SUPABASE_URL: ${supabaseUrl ? '✅ SET' : '❌ NOT SET'}\n`)
+    setResult(prev => prev + `NEXT_PUBLIC_SUPABASE_ANON_KEY: ${supabaseKey ? '✅ SET' : '❌ NOT SET'}\n`)
+    
+    if (!supabaseUrl || !supabaseKey) {
+      setResult(prev => prev + `❌ Missing environment variables! Cannot proceed.\n`)
+      setLoading(false)
+      return
+    }
     
     try {
       const supabase = createClient()
       
       // Test if Supabase client is working
-      setResult('Supabase client created successfully\n')
+      setResult(prev => prev + `✅ Supabase client created successfully\n`)
       
       // Test login
       const { data, error } = await supabase.auth.signInWithPassword({
