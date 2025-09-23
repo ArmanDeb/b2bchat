@@ -48,7 +48,6 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     if (conversationId) {
       setActiveConversationId(conversationId)
       setSelectedUserId(userId)
-      setShowNewChat(false)
       setShowUserList(false)
     }
   }
