@@ -143,13 +143,61 @@ export function useConversations() {
     if (!user) return null
 
     try {
-      const { data, error } = await supabase.rpc('get_or_create_conversation', {
-        user1_id: user.id,
-        user2_id: otherUserId
-      })
+      // First, check if there's an existing conversation (including soft-deleted ones)
+      const { data: existingConv, error: fetchError } = await supabase
+        .from('conversations')
+        .select('id, participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2')
+        .or(`and(participant1_id.eq.${user.id},participant2_id.eq.${otherUserId}),and(participant1_id.eq.${otherUserId},participant2_id.eq.${user.id})`)
+        .single()
 
-      if (error) throw error
-      return data
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Error fetching existing conversation:', fetchError)
+        throw fetchError
+      }
+
+      if (existingConv) {
+        console.log('Found existing conversation:', existingConv)
+        
+        // Check if the conversation was soft-deleted by the current user
+        const isParticipant1 = user.id === existingConv.participant1_id
+        const deletedByCurrentUser = isParticipant1 ? existingConv.deleted_by_participant1 : existingConv.deleted_by_participant2
+        
+        if (deletedByCurrentUser) {
+          console.log('Restoring soft-deleted conversation')
+          // Restore the conversation for the current user
+          const updateData = isParticipant1 
+            ? { deleted_by_participant1: false, updated_at: new Date().toISOString() }
+            : { deleted_by_participant2: false, updated_at: new Date().toISOString() }
+
+          const { error: restoreError } = await supabase
+            .from('conversations')
+            .update(updateData)
+            .eq('id', existingConv.id)
+
+          if (restoreError) {
+            console.error('Error restoring conversation:', restoreError)
+            throw restoreError
+          }
+
+          console.log('Conversation restored successfully')
+          // Reload conversations to update the sidebar
+          await loadConversations()
+          return existingConv.id
+        } else {
+          console.log('Using existing conversation')
+          return existingConv.id
+        }
+      } else {
+        console.log('No existing conversation found, creating new one')
+        // No existing conversation, create a new one
+        const { data, error } = await supabase.rpc('get_or_create_conversation', {
+          user1_id: user.id,
+          user2_id: otherUserId
+        })
+
+        if (error) throw error
+        return data
+      }
     } catch (err) {
       console.error('Error starting conversation:', err)
       setError('Failed to start conversation')
@@ -216,25 +264,51 @@ export function useConversations() {
       const isParticipant1 = user.id === convData.participant1_id
       const otherParticipantDeleted = isParticipant1 ? convData.deleted_by_participant2 : convData.deleted_by_participant1
 
+      console.log('Current deletion status:', {
+        deleted_by_participant1: convData.deleted_by_participant1,
+        deleted_by_participant2: convData.deleted_by_participant2,
+        isParticipant1,
+        otherParticipantDeleted
+      })
+      console.log('Full conversation data:', JSON.stringify(convData, null, 2))
+
       // Update the conversation to mark as deleted by this user
       const updateData = isParticipant1 
         ? { deleted_by_participant1: true, updated_at: new Date().toISOString() }
         : { deleted_by_participant2: true, updated_at: new Date().toISOString() }
 
-      const { error: updateError } = await supabase
+      console.log('Updating conversation with data:', updateData)
+
+      const { data: updateResult, error: updateError } = await supabase
         .from('conversations')
         .update(updateData)
         .eq('id', conversationId)
+        .select()
 
       if (updateError) {
         console.error('Error updating conversation:', updateError)
         throw updateError
       }
 
+      console.log('Update result:', updateResult)
       console.log('Conversation marked as deleted by user')
 
-      // If the other participant has also deleted it, permanently delete the conversation
-      if (otherParticipantDeleted) {
+      // Now check the updated state to see if both participants have deleted it
+      const { data: updatedConv, error: updatedConvError } = await supabase
+        .from('conversations')
+        .select('deleted_by_participant1, deleted_by_participant2')
+        .eq('id', conversationId)
+        .single()
+
+      if (updatedConvError) {
+        console.error('Error fetching updated conversation state:', updatedConvError)
+        throw updatedConvError
+      }
+
+      console.log('Updated deletion status:', JSON.stringify(updatedConv, null, 2))
+
+      // Check if both participants have now deleted it
+      if (updatedConv.deleted_by_participant1 && updatedConv.deleted_by_participant2) {
         console.log('Both participants have deleted the conversation, permanently deleting...')
         
         // Delete all messages first
@@ -259,7 +333,7 @@ export function useConversations() {
           throw conversationError
         }
 
-        console.log('Conversation permanently deleted')
+        console.log('Conversation permanently deleted from database')
       } else {
         console.log('Conversation soft deleted (other participant has not deleted it yet)')
       }
