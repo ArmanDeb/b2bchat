@@ -28,7 +28,8 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     conversations,
     users,
     isLoading,
-    startConversation
+    startConversation,
+    deleteConversation
   } = useConversations()
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
@@ -65,6 +66,19 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/auth/login')
+  }
+
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.')) {
+      const success = await deleteConversation(conversationId)
+      if (success) {
+        // If the deleted conversation was active, clear the active conversation
+        if (activeConversationId === conversationId) {
+          setActiveConversationId(null)
+          setSelectedUserId(null)
+        }
+      }
+    }
   }
 
   return (
@@ -250,6 +264,7 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
             conversationId={activeConversationId}
             otherUserId={selectedUserId}
             onBack={handleBack}
+            onDeleteConversation={handleDeleteConversation}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center">

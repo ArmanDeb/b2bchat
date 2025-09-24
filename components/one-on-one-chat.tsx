@@ -4,22 +4,30 @@ import { useOneOnOneChat } from '@/hooks/use-one-on-one-chat'
 import { useChatScroll } from '@/hooks/use-chat-scroll'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Send, ArrowLeft, MoreVertical } from 'lucide-react'
+import { Send, ArrowLeft, MoreVertical, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ChatMessageItem } from '@/components/chat-message'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 interface OneOnOneChatProps {
   conversationId?: string
   otherUserId?: string
   onBack?: () => void
+  onDeleteConversation?: (conversationId: string) => void
 }
 
 export const OneOnOneChat = ({ 
   conversationId, 
   otherUserId, 
-  onBack 
+  onBack,
+  onDeleteConversation
 }: OneOnOneChatProps) => {
   const { containerRef, scrollToBottom } = useChatScroll()
   const {
@@ -48,6 +56,14 @@ export const OneOnOneChat = ({
     },
     [newMessage, isConnected, sendMessage]
   )
+
+  const handleDeleteConversation = useCallback(() => {
+    if (!conversationId || !onDeleteConversation) return
+    
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.')) {
+      onDeleteConversation(conversationId)
+    }
+  }, [conversationId, onDeleteConversation])
 
   if (isLoading) {
     return (
@@ -157,9 +173,22 @@ export const OneOnOneChat = ({
             </div>
           </div>
           
-          <Button variant="ghost" size="sm" className="p-2">
-            <MoreVertical className="w-4 h-4" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="p-2">
+                <MoreVertical className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={handleDeleteConversation}
+                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer la conversation
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 

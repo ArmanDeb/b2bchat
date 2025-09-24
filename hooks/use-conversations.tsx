@@ -78,8 +78,17 @@ export function useConversations() {
       if (error) throw error
 
       if (data) {
+        // Filter out conversations deleted by the current user
+        const filteredData = data.filter(conv => {
+          if (conv.participant1_id === user.id) {
+            return !conv.deleted_by_participant1
+          } else {
+            return !conv.deleted_by_participant2
+          }
+        })
+
         const formattedConversations: Conversation[] = await Promise.all(
-          data.map(async (conv) => {
+          filteredData.map(async (conv) => {
             const otherUser = conv.participant1.id === user.id ? conv.participant2 : conv.participant1
             
             // Get unread count for this conversation
@@ -170,6 +179,162 @@ export function useConversations() {
     }
   }, [user, supabase])
 
+  // Soft delete a conversation (only for the current user)
+  const deleteConversation = useCallback(async (conversationId: string) => {
+    if (!user) return false
+
+    try {
+      console.log('Starting soft deletion of conversation:', conversationId)
+      console.log('User ID:', user.id)
+      
+      // First, get the conversation to check permissions and current state
+      const { data: convData, error: convError } = await supabase
+        .from('conversations')
+        .select('id, participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2')
+        .eq('id', conversationId)
+        .single()
+
+      if (convError) {
+        console.error('Error fetching conversation:', convError)
+        throw convError
+      }
+
+      if (!convData) {
+        console.error('Conversation not found')
+        throw new Error('Conversation not found')
+      }
+
+      console.log('Conversation data:', convData)
+
+      // Check if user is a participant
+      if (user.id !== convData.participant1_id && user.id !== convData.participant2_id) {
+        console.error('User is not a participant in this conversation')
+        throw new Error('User is not a participant in this conversation')
+      }
+
+      // Determine which participant the user is
+      const isParticipant1 = user.id === convData.participant1_id
+      const otherParticipantDeleted = isParticipant1 ? convData.deleted_by_participant2 : convData.deleted_by_participant1
+
+      // Update the conversation to mark as deleted by this user
+      const updateData = isParticipant1 
+        ? { deleted_by_participant1: true, updated_at: new Date().toISOString() }
+        : { deleted_by_participant2: true, updated_at: new Date().toISOString() }
+
+      const { error: updateError } = await supabase
+        .from('conversations')
+        .update(updateData)
+        .eq('id', conversationId)
+
+      if (updateError) {
+        console.error('Error updating conversation:', updateError)
+        throw updateError
+      }
+
+      console.log('Conversation marked as deleted by user')
+
+      // If the other participant has also deleted it, permanently delete the conversation
+      if (otherParticipantDeleted) {
+        console.log('Both participants have deleted the conversation, permanently deleting...')
+        
+        // Delete all messages first
+        const { error: messagesError } = await supabase
+          .from('messages')
+          .delete()
+          .eq('conversation_id', conversationId)
+
+        if (messagesError) {
+          console.error('Error deleting messages:', messagesError)
+          throw messagesError
+        }
+
+        // Delete the conversation
+        const { error: conversationError } = await supabase
+          .from('conversations')
+          .delete()
+          .eq('id', conversationId)
+
+        if (conversationError) {
+          console.error('Error deleting conversation:', conversationError)
+          throw conversationError
+        }
+
+        console.log('Conversation permanently deleted')
+      } else {
+        console.log('Conversation soft deleted (other participant has not deleted it yet)')
+      }
+
+      // Update local state to remove the conversation from the list
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId))
+      return true
+
+    } catch (err) {
+      console.error('Error soft deleting conversation:', err)
+      console.error('Full error object:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Failed to delete conversation: ${errorMessage}`)
+      return false
+    }
+  }, [user, supabase])
+
+  // Restore a conversation (undo soft delete)
+  const restoreConversation = useCallback(async (conversationId: string) => {
+    if (!user) return false
+
+    try {
+      console.log('Starting restoration of conversation:', conversationId)
+      
+      // First, get the conversation to check permissions
+      const { data: convData, error: convError } = await supabase
+        .from('conversations')
+        .select('id, participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2')
+        .eq('id', conversationId)
+        .single()
+
+      if (convError) {
+        console.error('Error fetching conversation:', convError)
+        throw convError
+      }
+
+      if (!convData) {
+        console.error('Conversation not found')
+        throw new Error('Conversation not found')
+      }
+
+      // Check if user is a participant
+      if (user.id !== convData.participant1_id && user.id !== convData.participant2_id) {
+        console.error('User is not a participant in this conversation')
+        throw new Error('User is not a participant in this conversation')
+      }
+
+      // Determine which participant the user is and restore
+      const isParticipant1 = user.id === convData.participant1_id
+      const updateData = isParticipant1 
+        ? { deleted_by_participant1: false, updated_at: new Date().toISOString() }
+        : { deleted_by_participant2: false, updated_at: new Date().toISOString() }
+
+      const { error: updateError } = await supabase
+        .from('conversations')
+        .update(updateData)
+        .eq('id', conversationId)
+
+      if (updateError) {
+        console.error('Error restoring conversation:', updateError)
+        throw updateError
+      }
+      
+      console.log('Conversation restored successfully')
+      // Reload conversations to update the list
+      await loadConversations()
+      return true
+    } catch (err) {
+      console.error('Error restoring conversation:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(`Failed to restore conversation: ${errorMessage}`)
+      return false
+    }
+  }, [user, supabase, loadConversations])
+
   // Initialize data
   useEffect(() => {
     if (user) {
@@ -229,6 +394,8 @@ export function useConversations() {
     error,
     startConversation,
     loadConversations,
-    loadUsers
+    loadUsers,
+    deleteConversation,
+    restoreConversation
   }
 }
