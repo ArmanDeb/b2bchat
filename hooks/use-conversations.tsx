@@ -35,7 +35,9 @@ export function useConversations() {
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastUpdate, setLastUpdate] = useState<number>(Date.now())
 
   // Load all users
   const loadUsers = useCallback(async () => {
@@ -59,12 +61,16 @@ export function useConversations() {
     }
   }, [user, supabase])
 
-  // Load user's conversations
-  const loadConversations = useCallback(async () => {
+  // Load user's conversations (with loading indicator)
+  const loadConversations = useCallback(async (showLoading = true) => {
     if (!user) return
 
     try {
-      setIsLoading(true)
+      if (showLoading) {
+        setIsLoading(true)
+      } else {
+        setIsRefreshing(true)
+      }
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -87,54 +93,72 @@ export function useConversations() {
           }
         })
 
-        const formattedConversations: Conversation[] = await Promise.all(
-          filteredData.map(async (conv) => {
-            const otherUser = conv.participant1.id === user.id ? conv.participant2 : conv.participant1
-            
-            // Get unread count for this conversation
-            const { count: unreadCount } = await supabase
-              .from('messages')
-              .select('*', { count: 'exact', head: true })
-              .eq('conversation_id', conv.id)
-              .neq('sender_id', user.id)
-              .eq('is_read', false)
+        const formattedConversations: Conversation[] = []
+        
+        for (const conv of filteredData) {
+          const otherUser = conv.participant1.id === user.id ? conv.participant2 : conv.participant1
+          
+          // Check if there are any messages in this conversation
+          const { count: messageCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id)
 
-            // Get last message
-            const { data: lastMessageData } = await supabase
-              .from('messages')
-              .select('id, content, sender_id, created_at')
-              .eq('conversation_id', conv.id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single()
+          // Only show conversation if it has messages OR if the current user is participant1 (creator)
+          const shouldShowConversation = (messageCount && messageCount > 0) || conv.participant1_id === user.id
+          
+          if (!shouldShowConversation) {
+            continue // Skip this conversation
+          }
+          
+          // Get unread count for this conversation
+          const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id)
+            .neq('sender_id', user.id)
+            .eq('is_read', false)
 
-            return {
-              id: conv.id,
-              participant1_id: conv.participant1_id,
-              participant2_id: conv.participant2_id,
-              created_at: conv.created_at,
-              updated_at: conv.updated_at,
-              other_user: {
-                id: otherUser.id,
-                username: otherUser.username,
-                display_name: otherUser.display_name,
-                avatar_url: otherUser.avatar_url,
-                is_online: otherUser.is_online,
-                last_seen: otherUser.last_seen
-              },
-              last_message: lastMessageData || undefined,
-              unread_count: unreadCount || 0
-            }
+          // Get last message
+          const { data: lastMessageData } = await supabase
+            .from('messages')
+            .select('id, content, sender_id, created_at')
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          formattedConversations.push({
+            id: conv.id,
+            participant1_id: conv.participant1_id,
+            participant2_id: conv.participant2_id,
+            created_at: conv.created_at,
+            updated_at: conv.updated_at,
+            other_user: {
+              id: otherUser.id,
+              username: otherUser.username,
+              display_name: otherUser.display_name,
+              avatar_url: otherUser.avatar_url,
+              is_online: otherUser.is_online,
+              last_seen: otherUser.last_seen
+            },
+            last_message: lastMessageData || undefined,
+            unread_count: unreadCount || 0
           })
-        )
+        }
 
         setConversations(formattedConversations)
+        setLastUpdate(Date.now())
       }
     } catch (err) {
       console.error('Error loading conversations:', err)
       setError('Failed to load conversations')
     } finally {
-      setIsLoading(false)
+      if (showLoading) {
+        setIsLoading(false)
+      } else {
+        setIsRefreshing(false)
+      }
     }
   }, [user, supabase])
 
@@ -181,7 +205,7 @@ export function useConversations() {
 
           console.log('Conversation restored successfully')
           // Reload conversations to update the sidebar
-          await loadConversations()
+          await loadConversations(false) // Silent update
           return existingConv.id
         } else {
           console.log('Using existing conversation')
@@ -196,6 +220,8 @@ export function useConversations() {
         })
 
         if (error) throw error
+        // Reload conversations to update the sidebar with the new conversation
+        await loadConversations(false) // Silent update
         return data
       }
     } catch (err) {
@@ -399,7 +425,7 @@ export function useConversations() {
       
       console.log('Conversation restored successfully')
       // Reload conversations to update the list
-      await loadConversations()
+      await loadConversations(false) // Silent update
       return true
     } catch (err) {
       console.error('Error restoring conversation:', err)
@@ -425,6 +451,17 @@ export function useConversations() {
     }
   }, [user, loadUsers, loadConversations, setUserOnline, setUserOffline])
 
+  // Fallback polling to ensure conversations are updated (every 30 seconds)
+  useEffect(() => {
+    if (!user) return
+
+    const interval = setInterval(() => {
+      loadConversations(false) // Silent update
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(interval)
+  }, [user, loadConversations])
+
   // Set up real-time subscription for conversations
   useEffect(() => {
     if (!user) return
@@ -436,11 +473,15 @@ export function useConversations() {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'conversations',
-          filter: `participant1_id=eq.${user.id},participant2_id=eq.${user.id}`
+          table: 'conversations'
         },
-        () => {
-          loadConversations()
+        (payload) => {
+          const newConversation = payload.new as any
+          // Only show conversation to the creator, not the receiver until a message is sent
+          if (newConversation && newConversation.participant1_id === user.id) {
+            console.log('New conversation created by user:', user.id, newConversation)
+            loadConversations(false) // Silent update
+          }
         }
       )
       .on(
@@ -450,8 +491,49 @@ export function useConversations() {
           schema: 'public',
           table: 'conversations'
         },
-        () => {
-          loadConversations()
+        (payload) => {
+          const updatedConversation = payload.new as any
+          // Check if the user is a participant in this conversation
+          if (updatedConversation && (updatedConversation.participant1_id === user.id || updatedConversation.participant2_id === user.id)) {
+            console.log('Conversation updated for user:', user.id, updatedConversation)
+            loadConversations(false) // Silent update
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages'
+        },
+        (payload) => {
+          const newMessage = payload.new as any
+          console.log('New message detected:', newMessage)
+          // Check if this message is in a conversation the user participates in
+          if (newMessage && newMessage.conversation_id) {
+            // First, check if the user is a participant in this conversation
+            supabase
+              .from('conversations')
+              .select('participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2')
+              .eq('id', newMessage.conversation_id)
+              .single()
+              .then(async ({ data: convData }) => {
+                if (convData && (convData.participant1_id === user.id || convData.participant2_id === user.id)) {
+                  console.log('Message is in user\'s conversation, checking if restoration needed...')
+                  
+                  // Try to auto-restore the conversation if it was soft-deleted
+                  const wasRestored = await autoRestoreConversation(newMessage.conversation_id)
+                  
+                  if (wasRestored) {
+                    console.log('Conversation was auto-restored due to new message')
+                  }
+                  
+                  // Reload conversations to show the restored conversation
+                  loadConversations(false) // Silent update
+                }
+              })
+          }
         }
       )
       .subscribe()
@@ -461,15 +543,75 @@ export function useConversations() {
     }
   }, [user, supabase, loadConversations])
 
+  // Force refresh conversations
+  const forceRefresh = useCallback(() => {
+    console.log('Force refreshing conversations...')
+    loadConversations(true) // Show loading for manual refresh
+  }, [loadConversations])
+
+  // Auto-restore conversation when message is received in soft-deleted conversation
+  const autoRestoreConversation = useCallback(async (conversationId: string) => {
+    if (!user) return false
+
+    try {
+      // Get conversation details
+      const { data: convData, error: convError } = await supabase
+        .from('conversations')
+        .select('participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2')
+        .eq('id', conversationId)
+        .single()
+
+      if (convError || !convData) return false
+
+      // Check if user is a participant
+      if (user.id !== convData.participant1_id && user.id !== convData.participant2_id) return false
+
+      // Check if conversation was soft-deleted by current user
+      const isParticipant1 = user.id === convData.participant1_id
+      const deletedByCurrentUser = isParticipant1 ? convData.deleted_by_participant1 : convData.deleted_by_participant2
+
+      if (deletedByCurrentUser) {
+        console.log('Auto-restoring conversation due to new message:', conversationId)
+        
+        // Restore the conversation
+        const updateData = isParticipant1 
+          ? { deleted_by_participant1: false, updated_at: new Date().toISOString() }
+          : { deleted_by_participant2: false, updated_at: new Date().toISOString() }
+
+        const { error: updateError } = await supabase
+          .from('conversations')
+          .update(updateData)
+          .eq('id', conversationId)
+
+        if (updateError) {
+          console.error('Error auto-restoring conversation:', updateError)
+          return false
+        }
+
+        console.log('Conversation auto-restored successfully')
+        return true
+      }
+
+      return false
+    } catch (err) {
+      console.error('Error in auto-restore conversation:', err)
+      return false
+    }
+  }, [user, supabase])
+
   return {
     conversations,
     users,
     isLoading,
+    isRefreshing,
     error,
     startConversation,
     loadConversations,
     loadUsers,
     deleteConversation,
-    restoreConversation
+    restoreConversation,
+    autoRestoreConversation,
+    forceRefresh,
+    lastUpdate
   }
 }

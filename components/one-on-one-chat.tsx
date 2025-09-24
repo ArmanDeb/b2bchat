@@ -21,13 +21,15 @@ interface OneOnOneChatProps {
   otherUserId?: string
   onBack?: () => void
   onDeleteConversation?: (conversationId: string) => void
+  onMessageSent?: () => void // Callback to notify parent when message is sent
 }
 
 export const OneOnOneChat = ({ 
   conversationId, 
   otherUserId, 
   onBack,
-  onDeleteConversation
+  onDeleteConversation,
+  onMessageSent
 }: OneOnOneChatProps) => {
   const { containerRef, scrollToBottom } = useChatScroll()
   const {
@@ -37,7 +39,7 @@ export const OneOnOneChat = ({
     isLoading,
     error,
     sendMessage
-  } = useOneOnOneChat({ conversationId, otherUserId })
+  } = useOneOnOneChat({ conversationId, otherUserId, onMessageSent })
 
   const [newMessage, setNewMessage] = useState('')
 

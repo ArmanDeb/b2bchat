@@ -41,9 +41,10 @@ export interface Conversation {
 interface UseOneOnOneChatProps {
   conversationId?: string
   otherUserId?: string
+  onMessageSent?: () => void // Callback to notify parent when message is sent
 }
 
-export function useOneOnOneChat({ conversationId, otherUserId }: UseOneOnOneChatProps) {
+export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: UseOneOnOneChatProps) {
   const supabase = createClient()
   const { user } = useUser()
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -188,11 +189,16 @@ export function useOneOnOneChat({ conversationId, otherUserId }: UseOneOnOneChat
       }
 
       setMessages(prev => [...prev, newMessage])
+      
+      // Notify parent component to update sidebar
+      if (onMessageSent) {
+        onMessageSent()
+      }
     } catch (err) {
       console.error('Error sending message:', err)
       setError('Failed to send message')
     }
-  }, [conversation, user, supabase])
+  }, [conversation, user, supabase, onMessageSent])
 
   // Mark messages as read
   const markAsRead = useCallback(async (convId: string) => {

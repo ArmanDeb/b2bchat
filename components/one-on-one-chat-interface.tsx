@@ -28,8 +28,11 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     conversations,
     users,
     isLoading,
+    isRefreshing,
     startConversation,
-    deleteConversation
+    deleteConversation,
+    loadConversations,
+    forceRefresh
   } = useConversations()
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
@@ -88,8 +91,22 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-bold">Messages</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold">Messages</h1>
+              {isRefreshing && (
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+              )}
+            </div>
             <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => forceRefresh()}
+                variant="ghost"
+                className="rounded-full"
+                title="Refresh conversations"
+              >
+                🔄
+              </Button>
               <Button
                 size="sm"
                 onClick={() => setShowUserList(!showUserList)}
@@ -265,6 +282,7 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
             otherUserId={selectedUserId}
             onBack={handleBack}
             onDeleteConversation={handleDeleteConversation}
+            onMessageSent={() => loadConversations(false)}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center">
