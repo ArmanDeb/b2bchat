@@ -19,12 +19,17 @@ export interface Conversation {
   participant2_id: string
   created_at: string
   updated_at: string
-  other_user: User
+  is_group: boolean
+  name?: string
+  created_by?: string
+  other_user?: User // Only for one-on-one chats
+  participants?: User[] // Only for group chats  
   last_message?: {
     id: string
     content: string
     sender_id: string
     created_at: string
+    sender_name: string
   }
   unread_count: number
 }
@@ -71,6 +76,8 @@ export function useConversations() {
       } else {
         setIsRefreshing(true)
       }
+
+      // Get conversations where user is a participant
       const { data, error } = await supabase
         .from('conversations')
         .select(`
@@ -78,73 +85,164 @@ export function useConversations() {
           participant1:users!conversations_participant1_id_fkey(*),
           participant2:users!conversations_participant2_id_fkey(*)
         `)
-        .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
+        .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id},is_group.eq.true`)
         .order('updated_at', { ascending: false })
 
       if (error) throw error
 
       if (data) {
-        // Filter out conversations deleted by the current user
-        const filteredData = data.filter(conv => {
-          if (conv.participant1_id === user.id) {
-            return !conv.deleted_by_participant1
-          } else {
-            return !conv.deleted_by_participant2
-          }
-        })
-
         const formattedConversations: Conversation[] = []
         
-        for (const conv of filteredData) {
-          const otherUser = conv.participant1.id === user.id ? conv.participant2 : conv.participant1
-          
-          // Check if there are any messages in this conversation
-          const { count: messageCount } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', conv.id)
+        for (const conv of data) {
+          // Handle group conversations
+          if (conv.is_group) {
+            // Check if user is a participant in this group
+            const { data: participantData, error: participantError } = await supabase
+              .from('conversation_participants')
+              .select('*')
+              .eq('conversation_id', conv.id)
+              .eq('user_id', user.id)
+              .eq('deleted_by_user', false)
+              .is('left_at', null)
+              .single()
 
-          // Only show conversation if it has messages OR if the current user is participant1 (creator)
-          const shouldShowConversation = (messageCount && messageCount > 0) || conv.participant1_id === user.id
-          
-          if (!shouldShowConversation) {
-            continue // Skip this conversation
+            if (participantError || !participantData) {
+              continue // User is not a participant or has left/deleted
+            }
+
+            // Get all participants for group
+            const { data: allParticipants } = await supabase
+              .rpc('get_conversation_participants', { conversation_id_param: conv.id })
+
+            // Check if there are any messages in this conversation
+            const { count: messageCount } = await supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('conversation_id', conv.id)
+
+            // Only show group conversation if it has messages OR if the current user is the creator
+            const shouldShowConversation = (messageCount && messageCount > 0) || conv.created_by === user.id
+            
+            if (!shouldShowConversation) {
+              continue // Skip this conversation
+            }
+
+            // Get unread count for this conversation
+            const { count: unreadCount } = await supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('conversation_id', conv.id)
+              .neq('sender_id', user.id)
+              .eq('is_read', false)
+
+            // Get last message with sender info
+            const { data: lastMessageData } = await supabase
+              .from('messages')
+              .select(`
+                id, content, sender_id, created_at,
+                sender:users!messages_sender_id_fkey(username, display_name)
+              `)
+              .eq('conversation_id', conv.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+
+            formattedConversations.push({
+              id: conv.id,
+              participant1_id: conv.participant1_id,
+              participant2_id: conv.participant2_id,
+              created_at: conv.created_at,
+              updated_at: conv.updated_at,
+              is_group: true,
+              name: conv.name,
+              created_by: conv.created_by,
+              participants: allParticipants?.map((p: any) => ({
+                id: p.participant_id,
+                username: p.username,
+                display_name: p.display_name,
+                avatar_url: p.avatar_url,
+                is_online: false, // We'll update this separately if needed
+                last_seen: new Date().toISOString()
+              })) || [],
+              last_message: lastMessageData ? {
+                id: lastMessageData.id,
+                content: lastMessageData.content,
+                sender_id: lastMessageData.sender_id,
+                created_at: lastMessageData.created_at,
+                sender_name: (lastMessageData.sender as any)?.display_name || (lastMessageData.sender as any)?.username || 'Unknown'
+              } : undefined,
+              unread_count: unreadCount || 0
+            })
+          } else {
+            // Handle one-on-one conversations (existing logic)
+            // Filter out conversations deleted by the current user
+            if (conv.participant1_id === user.id && conv.deleted_by_participant1) {
+              continue
+            }
+            if (conv.participant2_id === user.id && conv.deleted_by_participant2) {
+              continue
+            }
+
+            const otherUser = conv.participant1.id === user.id ? conv.participant2 : conv.participant1
+            
+            // Check if there are any messages in this conversation
+            const { count: messageCount } = await supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('conversation_id', conv.id)
+
+            // Only show conversation if it has messages OR if the current user is participant1 (creator)
+            const shouldShowConversation = (messageCount && messageCount > 0) || conv.participant1_id === user.id
+            
+            if (!shouldShowConversation) {
+              continue // Skip this conversation
+            }
+            
+            // Get unread count for this conversation
+            const { count: unreadCount } = await supabase
+              .from('messages')
+              .select('*', { count: 'exact', head: true })
+              .eq('conversation_id', conv.id)
+              .neq('sender_id', user.id)
+              .eq('is_read', false)
+
+            // Get last message with sender info
+            const { data: lastMessageData } = await supabase
+              .from('messages')
+              .select(`
+                id, content, sender_id, created_at,
+                sender:users!messages_sender_id_fkey(username, display_name)
+              `)
+              .eq('conversation_id', conv.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+
+            formattedConversations.push({
+              id: conv.id,
+              participant1_id: conv.participant1_id,
+              participant2_id: conv.participant2_id,
+              created_at: conv.created_at,
+              updated_at: conv.updated_at,
+              is_group: false,
+              other_user: {
+                id: otherUser.id,
+                username: otherUser.username,
+                display_name: otherUser.display_name,
+                avatar_url: otherUser.avatar_url,
+                is_online: otherUser.is_online,
+                last_seen: otherUser.last_seen
+              },
+              last_message: lastMessageData ? {
+                id: lastMessageData.id,
+                content: lastMessageData.content,
+                sender_id: lastMessageData.sender_id,
+                created_at: lastMessageData.created_at,
+                sender_name: (lastMessageData.sender as any)?.display_name || (lastMessageData.sender as any)?.username || 'Unknown'
+              } : undefined,
+              unread_count: unreadCount || 0
+            })
           }
-          
-          // Get unread count for this conversation
-          const { count: unreadCount } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', conv.id)
-            .neq('sender_id', user.id)
-            .eq('is_read', false)
-
-          // Get last message
-          const { data: lastMessageData } = await supabase
-            .from('messages')
-            .select('id, content, sender_id, created_at')
-            .eq('conversation_id', conv.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single()
-
-          formattedConversations.push({
-            id: conv.id,
-            participant1_id: conv.participant1_id,
-            participant2_id: conv.participant2_id,
-            created_at: conv.created_at,
-            updated_at: conv.updated_at,
-            other_user: {
-              id: otherUser.id,
-              username: otherUser.username,
-              display_name: otherUser.display_name,
-              avatar_url: otherUser.avatar_url,
-              is_online: otherUser.is_online,
-              last_seen: otherUser.last_seen
-            },
-            last_message: lastMessageData || undefined,
-            unread_count: unreadCount || 0
-          })
         }
 
         setConversations(formattedConversations)
@@ -170,7 +268,8 @@ export function useConversations() {
       // First, check if there's an existing conversation (including soft-deleted ones)
       const { data: existingConv, error: fetchError } = await supabase
         .from('conversations')
-        .select('id, participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2')
+        .select('id, participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2, is_group')
+        .eq('is_group', false) // Only look for one-on-one conversations
         .or(`and(participant1_id.eq.${user.id},participant2_id.eq.${otherUserId}),and(participant1_id.eq.${otherUserId},participant2_id.eq.${user.id})`)
         .single()
 
@@ -229,7 +328,60 @@ export function useConversations() {
       setError('Failed to start conversation')
       return null
     }
-  }, [user, supabase])
+  }, [user, supabase, loadConversations])
+
+  // Create a group conversation
+  const createGroupConversation = useCallback(async (participantIds: string[], groupName: string) => {
+    if (!user) return null
+
+    try {
+      console.log('Creating group conversation with participants:', participantIds, 'name:', groupName)
+      console.log('Current user ID:', user.id)
+      
+      // For single participant, use existing one-on-one logic
+      if (participantIds.length === 1) {
+        return await startConversation(participantIds[0])
+      }
+
+      // Prepare parameters
+      const finalGroupName = groupName || `Group with ${participantIds.length + 1} members`
+      const params = {
+        conversation_name: finalGroupName,
+        participant_ids: participantIds
+      }
+      
+      console.log('Calling RPC with params:', params)
+
+      // Test the function first
+      const { data: testData, error: testError } = await supabase.rpc('test_create_group', {
+        name_param: finalGroupName,
+        participants: participantIds
+      })
+      
+      console.log('Test function result:', testData, testError)
+
+      // Create group conversation
+      const { data: conversationId, error } = await supabase.rpc('create_group_conversation', params)
+
+      console.log('RPC response:', { data: conversationId, error })
+
+      if (error) {
+        console.error('Detailed error creating group conversation:', error)
+        console.error('Error details:', JSON.stringify(error, null, 2))
+        throw error
+      }
+
+      console.log('Group conversation created:', conversationId)
+      // Reload conversations to update the sidebar
+      await loadConversations(false) // Silent update
+      return conversationId
+    } catch (err) {
+      console.error('Error creating group conversation:', err)
+      console.error('Full error object:', JSON.stringify(err, null, 2))
+      setError('Failed to create group conversation')
+      return null
+    }
+  }, [user, supabase, loadConversations, startConversation])
 
   // Update user online status
   const setUserOnline = useCallback(async () => {
@@ -253,18 +405,18 @@ export function useConversations() {
     }
   }, [user, supabase])
 
-  // Soft delete a conversation (only for the current user)
+  // Delete a conversation (soft delete for one-on-one, leave group for groups)
   const deleteConversation = useCallback(async (conversationId: string) => {
     if (!user) return false
 
     try {
-      console.log('Starting soft deletion of conversation:', conversationId)
+      console.log('Starting deletion of conversation:', conversationId)
       console.log('User ID:', user.id)
       
-      // First, get the conversation to check permissions and current state
+      // First, get the conversation to check type and permissions
       const { data: convData, error: convError } = await supabase
         .from('conversations')
-        .select('id, participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2')
+        .select('id, participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2, is_group, created_by')
         .eq('id', conversationId)
         .single()
 
@@ -280,88 +432,105 @@ export function useConversations() {
 
       console.log('Conversation data:', convData)
 
-      // Check if user is a participant
-      if (user.id !== convData.participant1_id && user.id !== convData.participant2_id) {
-        console.error('User is not a participant in this conversation')
-        throw new Error('User is not a participant in this conversation')
-      }
-
-      // Determine which participant the user is
-      const isParticipant1 = user.id === convData.participant1_id
-      const otherParticipantDeleted = isParticipant1 ? convData.deleted_by_participant2 : convData.deleted_by_participant1
-
-      console.log('Current deletion status:', {
-        deleted_by_participant1: convData.deleted_by_participant1,
-        deleted_by_participant2: convData.deleted_by_participant2,
-        isParticipant1,
-        otherParticipantDeleted
-      })
-      console.log('Full conversation data:', JSON.stringify(convData, null, 2))
-
-      // Update the conversation to mark as deleted by this user
-      const updateData = isParticipant1 
-        ? { deleted_by_participant1: true, updated_at: new Date().toISOString() }
-        : { deleted_by_participant2: true, updated_at: new Date().toISOString() }
-
-      console.log('Updating conversation with data:', updateData)
-
-      const { data: updateResult, error: updateError } = await supabase
-        .from('conversations')
-        .update(updateData)
-        .eq('id', conversationId)
-        .select()
-
-      if (updateError) {
-        console.error('Error updating conversation:', updateError)
-        throw updateError
-      }
-
-      console.log('Update result:', updateResult)
-      console.log('Conversation marked as deleted by user')
-
-      // Now check the updated state to see if both participants have deleted it
-      const { data: updatedConv, error: updatedConvError } = await supabase
-        .from('conversations')
-        .select('deleted_by_participant1, deleted_by_participant2')
-        .eq('id', conversationId)
-        .single()
-
-      if (updatedConvError) {
-        console.error('Error fetching updated conversation state:', updatedConvError)
-        throw updatedConvError
-      }
-
-      console.log('Updated deletion status:', JSON.stringify(updatedConv, null, 2))
-
-      // Check if both participants have now deleted it
-      if (updatedConv.deleted_by_participant1 && updatedConv.deleted_by_participant2) {
-        console.log('Both participants have deleted the conversation, permanently deleting...')
+      if (convData.is_group) {
+        // Handle group conversation deletion (leave group)
+        console.log('Leaving group conversation')
         
-        // Delete all messages first
-        const { error: messagesError } = await supabase
-          .from('messages')
-          .delete()
-          .eq('conversation_id', conversationId)
+        const { error: leaveError } = await supabase.rpc('leave_group_conversation', {
+          conversation_id_param: conversationId
+        })
 
-        if (messagesError) {
-          console.error('Error deleting messages:', messagesError)
-          throw messagesError
+        if (leaveError) {
+          console.error('Error leaving group conversation:', leaveError)
+          throw leaveError
         }
 
-        // Delete the conversation
-        const { error: conversationError } = await supabase
-          .from('conversations')
-          .delete()
-          .eq('id', conversationId)
-
-        if (conversationError) {
-          console.error('Error deleting conversation:', conversationError)
-          throw conversationError
-        }
-
-        console.log('Conversation permanently deleted from database')
+        console.log('Successfully left group conversation')
       } else {
-        console.log('Conversation soft deleted (other participant has not deleted it yet)')
+        // Handle one-on-one conversation deletion (existing logic)
+        
+        // Check if user is a participant
+        if (user.id !== convData.participant1_id && user.id !== convData.participant2_id) {
+          console.error('User is not a participant in this conversation')
+          throw new Error('User is not a participant in this conversation')
+        }
+
+        // Determine which participant the user is
+        const isParticipant1 = user.id === convData.participant1_id
+        const otherParticipantDeleted = isParticipant1 ? convData.deleted_by_participant2 : convData.deleted_by_participant1
+
+        console.log('Current deletion status:', {
+          deleted_by_participant1: convData.deleted_by_participant1,
+          deleted_by_participant2: convData.deleted_by_participant2,
+          isParticipant1,
+          otherParticipantDeleted
+        })
+
+        // Update the conversation to mark as deleted by this user
+        const updateData = isParticipant1 
+          ? { deleted_by_participant1: true, updated_at: new Date().toISOString() }
+          : { deleted_by_participant2: true, updated_at: new Date().toISOString() }
+
+        console.log('Updating conversation with data:', updateData)
+
+        const { data: updateResult, error: updateError } = await supabase
+          .from('conversations')
+          .update(updateData)
+          .eq('id', conversationId)
+          .select()
+
+        if (updateError) {
+          console.error('Error updating conversation:', updateError)
+          throw updateError
+        }
+
+        console.log('Update result:', updateResult)
+        console.log('Conversation marked as deleted by user')
+
+        // Now check the updated state to see if both participants have deleted it
+        const { data: updatedConv, error: updatedConvError } = await supabase
+          .from('conversations')
+          .select('deleted_by_participant1, deleted_by_participant2')
+          .eq('id', conversationId)
+          .single()
+
+        if (updatedConvError) {
+          console.error('Error fetching updated conversation state:', updatedConvError)
+          throw updatedConvError
+        }
+
+        console.log('Updated deletion status:', JSON.stringify(updatedConv, null, 2))
+
+        // Check if both participants have now deleted it
+        if (updatedConv.deleted_by_participant1 && updatedConv.deleted_by_participant2) {
+          console.log('Both participants have deleted the conversation, permanently deleting...')
+          
+          // Delete all messages first
+          const { error: messagesError } = await supabase
+            .from('messages')
+            .delete()
+            .eq('conversation_id', conversationId)
+
+          if (messagesError) {
+            console.error('Error deleting messages:', messagesError)
+            throw messagesError
+          }
+
+          // Delete the conversation
+          const { error: conversationError } = await supabase
+            .from('conversations')
+            .delete()
+            .eq('id', conversationId)
+
+          if (conversationError) {
+            console.error('Error deleting conversation:', conversationError)
+            throw conversationError
+          }
+
+          console.log('Conversation permanently deleted from database')
+        } else {
+          console.log('Conversation soft deleted (other participant has not deleted it yet)')
+        }
       }
 
       // Update local state to remove the conversation from the list
@@ -369,7 +538,7 @@ export function useConversations() {
       return true
 
     } catch (err) {
-      console.error('Error soft deleting conversation:', err)
+      console.error('Error deleting conversation:', err)
       console.error('Full error object:', err)
       const errorMessage = err instanceof Error ? err.message : 'Unknown error'
       setError(`Failed to delete conversation: ${errorMessage}`)
@@ -606,6 +775,7 @@ export function useConversations() {
     isRefreshing,
     error,
     startConversation,
+    createGroupConversation,
     loadConversations,
     loadUsers,
     deleteConversation,

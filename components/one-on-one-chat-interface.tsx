@@ -1,21 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { useConversations } from '@/hooks/use-conversations'
+import { useConversations, type Conversation } from '@/hooks/use-conversations'
 import { OneOnOneChat } from '@/components/one-on-one-chat'
+import { GroupChatSelector } from '@/components/group-chat-selector'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { 
   MessageCircle, 
   Search, 
   Plus,
-  ArrowLeft,
-  LogOut
+  LogOut,
+  Users
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -29,16 +29,17 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     users,
     isLoading,
     isRefreshing,
-    startConversation,
+    createGroupConversation,
     deleteConversation,
     loadConversations,
     forceRefresh
   } = useConversations()
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [showUserList, setShowUserList] = useState(false)
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -47,23 +48,31 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     (user.display_name && user.display_name.toLowerCase().includes(searchQuery.toLowerCase()))
   )
 
-  const handleStartConversation = async (userId: string) => {
-    const conversationId = await startConversation(userId)
-    if (conversationId) {
-      setActiveConversationId(conversationId)
-      setSelectedUserId(userId)
-      setShowUserList(false)
+  const handleCreateGroup = async (participantIds: string[], groupName: string) => {
+    setIsCreatingGroup(true)
+    try {
+      const conversationId = await createGroupConversation(participantIds, groupName)
+      if (conversationId) {
+        // Find the conversation to get full details
+        const conversation = conversations.find(c => c.id === conversationId)
+        setActiveConversationId(conversationId)
+        setActiveConversation(conversation || null)
+        setShowUserList(false)
+      }
+    } finally {
+      setIsCreatingGroup(false)
     }
   }
 
-  const handleSelectConversation = (conversationId: string, otherUserId: string) => {
+  const handleSelectConversation = (conversationId: string) => {
+    const conversation = conversations.find(c => c.id === conversationId)
     setActiveConversationId(conversationId)
-    setSelectedUserId(otherUserId)
+    setActiveConversation(conversation || null)
   }
 
   const handleBack = () => {
     setActiveConversationId(null)
-    setSelectedUserId(null)
+    setActiveConversation(null)
   }
 
   const handleLogout = async () => {
@@ -72,13 +81,20 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
   }
 
   const handleDeleteConversation = async (conversationId: string) => {
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.')) {
+    const conversation = conversations.find(c => c.id === conversationId)
+    const isGroup = conversation?.is_group
+    
+    const confirmMessage = isGroup 
+      ? 'Êtes-vous sûr de vouloir quitter ce groupe ? Vous pourrez être réinvité par un admin.'
+      : 'Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.'
+    
+    if (window.confirm(confirmMessage)) {
       const success = await deleteConversation(conversationId)
       if (success) {
         // If the deleted conversation was active, clear the active conversation
         if (activeConversationId === conversationId) {
           setActiveConversationId(null)
-          setSelectedUserId(null)
+          setActiveConversation(null)
         }
       }
     }
@@ -130,53 +146,14 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
           </div>
         </div>
 
-        {/* User List for New Chat */}
+        {/* Group Chat Selector */}
         {showUserList && (
-          <Card className="m-4 p-4">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium">Start New Chat</h3>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setShowUserList(false)}
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-              </div>
-              
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {filteredUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    onClick={() => handleStartConversation(user.id)}
-                    className="flex items-center gap-3 p-2 rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                  >
-                    <Avatar className="w-8 h-8">
-                      <AvatarImage src={user.avatar_url} />
-                      <AvatarFallback>
-                        {user.display_name?.[0] || user.username[0]?.toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium truncate">
-                          {user.display_name || user.username}
-                        </span>
-                        <div className={cn(
-                          "w-2 h-2 rounded-full",
-                          user.is_online ? "bg-green-500" : "bg-gray-400"
-                        )} />
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        @{user.username}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Card>
+          <GroupChatSelector
+            users={filteredUsers}
+            onBack={() => setShowUserList(false)}
+            onCreateGroup={handleCreateGroup}
+            isCreating={isCreatingGroup}
+          />
         )}
 
         {/* Conversations List */}
@@ -196,7 +173,7 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
               {conversations.map((conversation) => (
                 <div
                   key={conversation.id}
-                  onClick={() => handleSelectConversation(conversation.id, conversation.other_user.id)}
+                  onClick={() => handleSelectConversation(conversation.id)}
                   className={cn(
                     "p-3 rounded-lg cursor-pointer transition-colors mb-2",
                     "hover:bg-muted/50",
@@ -206,24 +183,47 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
                   )}
                 >
                   <div className="flex items-center gap-3">
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={conversation.other_user.avatar_url} />
-                      <AvatarFallback>
-                        {conversation.other_user.display_name?.[0] || 
-                         conversation.other_user.username[0]?.toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
+                    {conversation.is_group ? (
+                      <div className="relative">
+                        <Avatar className="w-10 h-10">
+                          <AvatarFallback className="bg-blue-500 text-white">
+                            <Users className="w-5 h-5" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                          {conversation.participants?.length || 0}
+                        </Badge>
+                      </div>
+                    ) : (
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={conversation.other_user?.avatar_url} />
+                        <AvatarFallback>
+                          {conversation.other_user?.display_name?.[0] || 
+                           conversation.other_user?.username[0]?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="font-medium truncate">
-                          {conversation.other_user.display_name || conversation.other_user.username}
-                        </span>
                         <div className="flex items-center gap-2">
-                          <div className={cn(
-                            "w-2 h-2 rounded-full",
-                            conversation.other_user.is_online ? "bg-green-500" : "bg-gray-400"
-                          )} />
+                          <span className="font-medium truncate">
+                            {conversation.is_group 
+                              ? conversation.name 
+                              : (conversation.other_user?.display_name || conversation.other_user?.username)
+                            }
+                          </span>
+                          {conversation.is_group && (
+                            <Users className="w-3 h-3 text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {!conversation.is_group && conversation.other_user && (
+                            <div className={cn(
+                              "w-2 h-2 rounded-full",
+                              conversation.other_user.is_online ? "bg-green-500" : "bg-gray-400"
+                            )} />
+                          )}
                           {conversation.unread_count > 0 && (
                             <Badge variant="destructive" className="text-xs">
                               {conversation.unread_count}
@@ -234,6 +234,11 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
                       
                       {conversation.last_message && (
                         <p className="text-sm text-muted-foreground truncate mt-1">
+                          {conversation.is_group && conversation.last_message.sender_name && (
+                            <span className="font-medium">
+                              {conversation.last_message.sender_name}: 
+                            </span>
+                          )}
                           {conversation.last_message.content}
                         </p>
                       )}
@@ -276,10 +281,11 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {activeConversationId && selectedUserId ? (
+        {activeConversationId && activeConversation ? (
           <OneOnOneChat
             conversationId={activeConversationId}
-            otherUserId={selectedUserId}
+            conversation={activeConversation}
+            otherUserId={activeConversation.is_group ? undefined : activeConversation.other_user?.id}
             onBack={handleBack}
             onDeleteConversation={handleDeleteConversation}
             onMessageSent={() => loadConversations(false)}
@@ -288,13 +294,13 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
+              <h3 className="text-lg font-medium mb-2">Sélectionner une conversation</h3>
               <p className="text-muted-foreground mb-4">
-                Choose a conversation from the sidebar to start chatting
+                Choisissez une conversation dans la barre latérale pour commencer à discuter
               </p>
               <Button onClick={() => setShowUserList(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                Start New Chat
+                Nouvelle conversation
               </Button>
             </div>
           </div>

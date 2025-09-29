@@ -2,9 +2,10 @@
 
 import { useOneOnOneChat } from '@/hooks/use-one-on-one-chat'
 import { useChatScroll } from '@/hooks/use-chat-scroll'
+import { useUser } from '@/hooks/use-user'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Send, ArrowLeft, MoreVertical, Trash2 } from 'lucide-react'
+import { Send, ArrowLeft, MoreVertical, Trash2, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ChatMessageItem } from '@/components/chat-message'
@@ -16,8 +17,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
+import type { Conversation, User } from '@/hooks/use-conversations'
+
 interface OneOnOneChatProps {
   conversationId?: string
+  conversation?: Conversation // Full conversation object
   otherUserId?: string
   onBack?: () => void
   onDeleteConversation?: (conversationId: string) => void
@@ -26,20 +30,25 @@ interface OneOnOneChatProps {
 
 export const OneOnOneChat = ({ 
   conversationId, 
+  conversation,
   otherUserId, 
   onBack,
   onDeleteConversation,
   onMessageSent
 }: OneOnOneChatProps) => {
+  const { user } = useUser()
   const { containerRef, scrollToBottom } = useChatScroll()
   const {
     messages,
-    conversation,
+    conversation: hookConversation,
     isConnected,
     isLoading,
     error,
     sendMessage
   } = useOneOnOneChat({ conversationId, otherUserId, onMessageSent })
+
+  // Use the passed conversation object if available, otherwise fall back to hook data
+  const activeConversation = conversation || hookConversation
 
   const [newMessage, setNewMessage] = useState('')
 
@@ -62,10 +71,15 @@ export const OneOnOneChat = ({
   const handleDeleteConversation = useCallback(() => {
     if (!conversationId || !onDeleteConversation) return
     
-    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.')) {
+    const isGroup = activeConversation?.is_group
+    const confirmMessage = isGroup 
+      ? 'Êtes-vous sûr de vouloir quitter ce groupe ? Vous pourrez être réinvité par un admin.'
+      : 'Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.'
+    
+    if (window.confirm(confirmMessage)) {
       onDeleteConversation(conversationId)
     }
-  }, [conversationId, onDeleteConversation])
+  }, [conversationId, onDeleteConversation, activeConversation])
 
   if (isLoading) {
     return (
@@ -102,7 +116,7 @@ export const OneOnOneChat = ({
     )
   }
 
-  if (!conversation) {
+  if (!activeConversation) {
     return (
       <div className="flex flex-col h-full w-full bg-background text-foreground antialiased">
         <div className="flex-1 flex items-center justify-center">
@@ -110,9 +124,9 @@ export const OneOnOneChat = ({
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
               <Send className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium mb-2">No conversation found</h3>
+            <h3 className="text-lg font-medium mb-2">Aucune conversation trouvée</h3>
             <p className="text-muted-foreground">
-              Start a conversation with someone to begin chatting
+              Commencez une conversation pour discuter
             </p>
           </div>
         </div>
@@ -144,32 +158,63 @@ export const OneOnOneChat = ({
               </Button>
             )}
             
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={conversation.other_user.avatar_url} />
-              <AvatarFallback>
-                {conversation.other_user.display_name?.[0] || 
-                 conversation.other_user.username[0]?.toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
+            {activeConversation.is_group ? (
+              <div className="relative">
+                <Avatar className="w-10 h-10">
+                  <AvatarFallback className="bg-blue-500 text-white">
+                    <Users className="w-5 h-5" />
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+            ) : (
+              <Avatar className="w-10 h-10">
+                <AvatarImage src={activeConversation.other_user?.avatar_url} />
+                <AvatarFallback>
+                  {activeConversation.other_user?.display_name?.[0] || 
+                   activeConversation.other_user?.username[0]?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            )}
             
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <h2 className="font-semibold">
-                  {conversation.other_user.display_name || conversation.other_user.username}
+                  {activeConversation.is_group 
+                    ? activeConversation.name
+                    : (activeConversation.other_user?.display_name || activeConversation.other_user?.username)
+                  }
                 </h2>
-                <div className="flex items-center gap-1">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full",
-                    conversation.other_user.is_online ? "bg-green-500" : "bg-gray-400"
-                  )} />
-                  <span className="text-xs text-muted-foreground">
-                    {conversation.other_user.is_online ? 'Online' : 'Offline'}
-                  </span>
-                </div>
+                
+                {activeConversation.is_group ? (
+                  <div className="flex items-center gap-1">
+                    <Users className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {activeConversation.participants?.length || 0} membres
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full",
+                      activeConversation.other_user?.is_online ? "bg-green-500" : "bg-gray-400"
+                    )} />
+                    <span className="text-xs text-muted-foreground">
+                      {activeConversation.other_user?.is_online ? 'En ligne' : 'Hors ligne'}
+                    </span>
+                  </div>
+                )}
               </div>
-              {!conversation.other_user.is_online && (
+              
+              {activeConversation.is_group && activeConversation.participants && (
                 <p className="text-xs text-muted-foreground">
-                  Last seen {new Date(conversation.other_user.last_seen).toLocaleString()}
+                  {activeConversation.participants.slice(0, 3).map((p: User) => p.username).join(', ')}
+                  {activeConversation.participants.length > 3 && ` et ${activeConversation.participants.length - 3} autres`}
+                </p>
+              )}
+              
+              {!activeConversation.is_group && !activeConversation.other_user?.is_online && (
+                <p className="text-xs text-muted-foreground">
+                  Vu {new Date(activeConversation.other_user?.last_seen || '').toLocaleString()}
                 </p>
               )}
             </div>
@@ -187,7 +232,7 @@ export const OneOnOneChat = ({
                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Supprimer la conversation
+                {activeConversation.is_group ? 'Quitter le groupe' : 'Supprimer la conversation'}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -202,9 +247,9 @@ export const OneOnOneChat = ({
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
                 <Send className="w-8 h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">No messages yet</h3>
+              <h3 className="text-lg font-medium text-foreground mb-2">Aucun message</h3>
               <p className="text-sm text-muted-foreground">
-                Start the conversation by sending a message below
+                Commencez la conversation en envoyant un message ci-dessous
               </p>
             </div>
           </div>
@@ -213,7 +258,7 @@ export const OneOnOneChat = ({
             {messages.map((message, index) => {
               const prevMessage = index > 0 ? messages[index - 1] : null
               const showHeader = !prevMessage || prevMessage.sender_id !== message.sender_id
-              const isOwnMessage = message.sender_id === conversation.other_user.id
+              const isOwnMessage = message.sender_id === user?.id
 
               return (
                 <div
@@ -251,7 +296,7 @@ export const OneOnOneChat = ({
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder={isConnected ? "Type a message..." : "Connecting..."}
+              placeholder={isConnected ? "Tapez un message..." : "Connexion..."}
               disabled={!isConnected}
             />
           </div>

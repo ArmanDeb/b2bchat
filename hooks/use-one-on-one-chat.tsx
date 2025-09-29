@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/client'
 import { useCallback, useEffect, useState } from 'react'
 import { useUser } from './use-user'
+import type { Conversation } from './use-conversations'
 
 export interface ChatMessage {
   id: string
@@ -20,23 +21,7 @@ export interface ChatMessage {
   }
 }
 
-export interface Conversation {
-  id: string
-  participant1_id: string
-  participant2_id: string
-  created_at: string
-  updated_at: string
-  other_user: {
-    id: string
-    username: string
-    display_name?: string
-    avatar_url?: string
-    is_online: boolean
-    last_seen: string
-  }
-  last_message?: ChatMessage
-  unread_count: number
-}
+// Import Conversation type from use-conversations to avoid duplication
 
 interface UseOneOnOneChatProps {
   conversationId?: string
@@ -75,36 +60,74 @@ export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: 
   // Load conversation details
   const loadConversation = useCallback(async (convId: string) => {
     try {
-      const { data, error } = await supabase
+      // First, get basic conversation info
+      const { data: convData, error: convError } = await supabase
         .from('conversations')
-        .select(`
-          *,
-          participant1:users!conversations_participant1_id_fkey(*),
-          participant2:users!conversations_participant2_id_fkey(*)
-        `)
+        .select('*')
         .eq('id', convId)
         .single()
 
-      if (error) throw error
+      if (convError) throw convError
+
+      let data = convData
+
+      // If it's a one-on-one conversation, get participant details
+      if (!convData.is_group) {
+        const { data: participantData, error: participantError } = await supabase
+          .from('conversations')
+          .select(`
+            *,
+            participant1:users!conversations_participant1_id_fkey(*),
+            participant2:users!conversations_participant2_id_fkey(*)
+          `)
+          .eq('id', convId)
+          .single()
+
+        if (participantError) throw participantError
+        data = participantData
+      }
 
       if (data) {
-        const otherUser = data.participant1.id === user?.id ? data.participant2 : data.participant1
-        setConversation({
-          id: data.id,
-          participant1_id: data.participant1_id,
-          participant2_id: data.participant2_id,
-          created_at: data.created_at,
-          updated_at: data.updated_at,
-          other_user: {
-            id: otherUser.id,
-            username: otherUser.username,
-            display_name: otherUser.display_name,
-            avatar_url: otherUser.avatar_url,
-            is_online: otherUser.is_online,
-            last_seen: otherUser.last_seen
-          },
-          unread_count: 0
-        })
+        // Handle group conversations
+        if (data.is_group) {
+          // For group conversations, we don't need participant1/participant2 logic
+          setConversation({
+            id: data.id,
+            participant1_id: data.participant1_id,
+            participant2_id: data.participant2_id,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+            is_group: true,
+            name: data.name,
+            created_by: data.created_by,
+            other_user: undefined,
+            participants: [], // Will be loaded separately if needed
+            unread_count: 0
+          })
+        } else {
+          // Handle one-on-one conversations
+          const otherUser = data.participant1?.id === user?.id ? data.participant2 : data.participant1
+          setConversation({
+            id: data.id,
+            participant1_id: data.participant1_id,
+            participant2_id: data.participant2_id,
+            created_at: data.created_at,
+            updated_at: data.updated_at,
+            is_group: false,
+            name: undefined,
+            created_by: undefined,
+            other_user: {
+              id: otherUser.id,
+              username: otherUser.username,
+              display_name: otherUser.display_name,
+              avatar_url: otherUser.avatar_url,
+              is_online: otherUser.is_online,
+              last_seen: otherUser.last_seen
+            },
+            participants: undefined,
+            unread_count: 0
+          })
+        }
       }
     } catch (err) {
       console.error('Error loading conversation:', err)
