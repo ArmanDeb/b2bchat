@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Card,
   CardContent,
@@ -5,6 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function Page() {
   return (
@@ -13,16 +17,22 @@ export default function Page() {
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">
-                Thank you for signing up!
+              <CardTitle className="text-2xl text-center">
+                Merci de vous être inscrit !
               </CardTitle>
-              <CardDescription>Check your email to confirm</CardDescription>
+              <CardDescription className="text-center">
+                Votre compte a été créé avec succès
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                You&apos;ve successfully signed up. Please check your email to
-                confirm your account before signing in.
+            <CardContent className="text-center">
+              <p className="text-sm text-muted-foreground mb-4">
+                Vous pouvez maintenant vous connecter avec vos identifiants.
               </p>
+              <Link href="/auth/login">
+                <Button className="w-full">
+                  Aller à la page de connexion
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
