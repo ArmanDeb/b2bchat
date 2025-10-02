@@ -104,7 +104,7 @@ export function useConversations() {
               .eq('user_id', user.id)
               .eq('deleted_by_user', false)
               .is('left_at', null)
-              .single()
+              .maybeSingle()
 
             if (participantError || !participantData) {
               continue // User is not a participant or has left/deleted
@@ -145,7 +145,7 @@ export function useConversations() {
               .eq('conversation_id', conv.id)
               .order('created_at', { ascending: false })
               .limit(1)
-              .single()
+              .maybeSingle()
 
             formattedConversations.push({
               id: conv.id,
@@ -216,7 +216,7 @@ export function useConversations() {
               .eq('conversation_id', conv.id)
               .order('created_at', { ascending: false })
               .limit(1)
-              .single()
+              .maybeSingle()
 
             formattedConversations.push({
               id: conv.id,
@@ -271,9 +271,9 @@ export function useConversations() {
         .select('id, participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2, is_group')
         .eq('is_group', false) // Only look for one-on-one conversations
         .or(`and(participant1_id.eq.${user.id},participant2_id.eq.${otherUserId}),and(participant1_id.eq.${otherUserId},participant2_id.eq.${user.id})`)
-        .single()
+        .maybeSingle()
 
-      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows found
+      if (fetchError) {
         console.error('Error fetching existing conversation:', fetchError)
         throw fetchError
       }
