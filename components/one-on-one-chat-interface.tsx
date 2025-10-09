@@ -178,9 +178,13 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
         onNotificationClick={handleNotificationClick}
       />
     
-      <div className="flex h-screen bg-background">
-        {/* Sidebar */}
-        <div className="w-80 border-r border-border bg-muted/30 flex flex-col">
+      <div className="flex h-screen bg-background overflow-hidden">
+        {/* Sidebar - Hidden on mobile when chat is active */}
+        <div className={cn(
+          "w-full sm:w-80 border-r border-border bg-muted/30 flex flex-col",
+          "transition-transform duration-300 ease-in-out",
+          activeConversationId ? "hidden sm:flex" : "flex"
+        )}>
           {/* Header */}
           <div className="p-4 border-b border-border">
             <div className="flex items-center justify-between mb-4">
@@ -356,8 +360,11 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Chat Area - Full width on mobile when conversation is active */}
+      <div className={cn(
+        "flex-1 flex flex-col",
+        activeConversationId ? "flex w-full sm:w-auto" : "hidden sm:flex"
+      )}>
         {activeConversationId ? (
           <OneOnOneChat
             conversationId={activeConversationId}
@@ -368,14 +375,14 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
             onMessageSent={() => loadConversations(false)}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center p-4">
             <div className="text-center">
               <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium mb-2">Sélectionner une conversation</h3>
-              <p className="text-muted-foreground mb-4">
+              <p className="text-muted-foreground mb-4 text-sm sm:text-base">
                 Choisissez une conversation dans la barre latérale pour commencer à discuter
               </p>
-              <Button onClick={() => setShowUserList(true)}>
+              <Button onClick={() => setShowUserList(true)} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 Nouvelle conversation
               </Button>

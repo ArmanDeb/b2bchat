@@ -142,30 +142,30 @@ export const OneOnOneChat = ({
       )}
 
       {/* Chat Header */}
-      <div className="border-b border-border bg-muted/30 p-4">
+      <div className="border-b border-border bg-muted/30 p-3 sm:p-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
             {onBack && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={onBack}
-                className="p-2"
+                className="p-1.5 sm:p-2 shrink-0"
               >
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             )}
             
             {activeConversation.is_group ? (
-              <div className="relative">
-                <Avatar className="w-10 h-10">
+              <div className="relative shrink-0">
+                <Avatar className="w-8 h-8 sm:w-10 sm:h-10">
                   <AvatarFallback className="bg-blue-500 text-white">
-                    <Users className="w-5 h-5" />
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                   </AvatarFallback>
                 </Avatar>
               </div>
             ) : (
-              <Avatar className="w-10 h-10">
+              <Avatar className="w-8 h-8 sm:w-10 sm:h-10 shrink-0">
                 <AvatarImage src={activeConversation.other_user?.avatar_url} />
                 <AvatarFallback>
                   {activeConversation.other_user?.display_name?.[0] || 
@@ -174,9 +174,9 @@ export const OneOnOneChat = ({
               </Avatar>
             )}
             
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h2 className="font-semibold">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1 sm:gap-2">
+                <h2 className="font-semibold text-sm sm:text-base truncate">
                   {activeConversation.is_group 
                     ? activeConversation.name
                     : (activeConversation.other_user?.display_name || activeConversation.other_user?.username)
@@ -184,19 +184,19 @@ export const OneOnOneChat = ({
                 </h2>
                 
                 {activeConversation.is_group ? (
-                  <div className="flex items-center gap-1">
-                    <Users className="w-3 h-3 text-muted-foreground" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Users className="w-3 h-3 text-muted-foreground hidden sm:block" />
                     <span className="text-xs text-muted-foreground">
-                      {activeConversation.participants?.length || 0} membres
+                      {activeConversation.participants?.length || 0}
                     </span>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <div className={cn(
                       "w-2 h-2 rounded-full",
                       activeConversation.other_user?.is_online ? "bg-green-500" : "bg-gray-400"
                     )} />
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs text-muted-foreground hidden sm:inline">
                       {activeConversation.other_user?.is_online ? 'En ligne' : 'Hors ligne'}
                     </span>
                   </div>
@@ -204,14 +204,14 @@ export const OneOnOneChat = ({
               </div>
               
               {activeConversation.is_group && activeConversation.participants && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground truncate hidden sm:block">
                   {activeConversation.participants.slice(0, 3).map((p: User) => p.username).join(', ')}
                   {activeConversation.participants.length > 3 && ` et ${activeConversation.participants.length - 3} autres`}
                 </p>
               )}
               
               {!activeConversation.is_group && !activeConversation.other_user?.is_online && (
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground hidden sm:block truncate">
                   Vu {new Date(activeConversation.other_user?.last_seen || '').toLocaleString()}
                 </p>
               )}
@@ -220,7 +220,7 @@ export const OneOnOneChat = ({
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-2">
+              <Button variant="ghost" size="sm" className="p-1.5 sm:p-2 shrink-0">
                 <MoreVertical className="w-4 h-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -241,15 +241,15 @@ export const OneOnOneChat = ({
       </div>
 
       {/* Messages */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto p-6">
+      <div ref={containerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                <Send className="w-8 h-8 text-muted-foreground" />
+            <div className="text-center px-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-muted flex items-center justify-center">
+                <Send className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">Aucun message</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">Aucun message</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Commencez la conversation en envoyant un message ci-dessous
               </p>
             </div>
@@ -286,13 +286,13 @@ export const OneOnOneChat = ({
       </div>
 
       {/* Message Input */}
-      <div className="border-t border-border bg-background p-4">
-        <form onSubmit={handleSendMessage} className="flex w-full gap-3">
+      <div className="border-t border-border bg-background p-3 sm:p-4">
+        <form onSubmit={handleSendMessage} className="flex w-full gap-2 sm:gap-3">
           <div className="flex-1 relative">
             <Input
               className={cn(
-                'rounded-full bg-muted/50 border-0 pr-12 text-sm transition-all duration-300 focus:bg-background focus:border-border',
-                isConnected && newMessage.trim() ? 'w-full' : 'w-full'
+                'rounded-full bg-muted/50 border-0 pr-3 text-sm transition-all duration-300 focus:bg-background focus:border-border',
+                'h-10 sm:h-auto'
               )}
               type="text"
               value={newMessage}
@@ -303,11 +303,11 @@ export const OneOnOneChat = ({
           </div>
           {isConnected && newMessage.trim() && (
             <Button
-              className="rounded-full aspect-square p-0 w-10 h-10 animate-in fade-in slide-in-from-right-4 duration-300"
+              className="rounded-full aspect-square p-0 w-10 h-10 shrink-0 animate-in fade-in slide-in-from-right-4 duration-300"
               type="submit"
               disabled={!isConnected}
             >
-              <Send className="size-4" />
+              <Send className="w-4 h-4" />
             </Button>
           )}
         </form>

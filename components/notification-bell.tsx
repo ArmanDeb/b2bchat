@@ -78,10 +78,10 @@ export function NotificationBell({
         </Button>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" className="w-80 max-h-[32rem] overflow-y-auto">
+      <DropdownMenuContent align="end" className="w-72 sm:w-80 max-h-[28rem] sm:max-h-[32rem] overflow-y-auto">
         {/* Header */}
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-          <h3 className="font-semibold text-sm">Notifications</h3>
+        <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h3 className="font-semibold text-xs sm:text-sm">Notifications</h3>
           {totalUnread > 0 && (
             <button
               onClick={(e) => {
@@ -90,16 +90,16 @@ export function NotificationBell({
               }}
               className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
             >
-              Tout marquer comme lu
+              Marquer comme lu
             </button>
           )}
         </div>
 
         {/* Notifications list */}
         {notifications.length === 0 ? (
-          <div className="px-4 py-8 text-center">
-            <Bell className="w-12 h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+          <div className="px-3 sm:px-4 py-6 sm:py-8 text-center">
+            <Bell className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
               Aucune notification
             </p>
           </div>
@@ -108,16 +108,16 @@ export function NotificationBell({
             {notifications.map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
-                className="px-4 py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 focus:bg-gray-50 dark:focus:bg-gray-800"
+                className="px-3 sm:px-4 py-2 sm:py-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 focus:bg-gray-50 dark:focus:bg-gray-800"
                 onClick={() => {
                   onNotificationClick(notification.conversationId)
                   setIsOpen(false)
                 }}
               >
-                <div className="flex items-start gap-3 w-full">
+                <div className="flex items-start gap-2 sm:gap-3 w-full">
                   {/* Avatar */}
-                  <Avatar className="w-10 h-10 flex-shrink-0">
-                    <div className="w-full h-full flex items-center justify-center bg-blue-500 text-white font-semibold">
+                  <Avatar className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0">
+                    <div className="w-full h-full flex items-center justify-center bg-blue-500 text-white font-semibold text-sm sm:text-base">
                       {notification.senderName.charAt(0).toUpperCase()}
                     </div>
                   </Avatar>
@@ -125,18 +125,18 @@ export function NotificationBell({
                   {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                      <h4 className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white truncate">
                         {notification.senderName}
                       </h4>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
+                      <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
                         {formatTimestamp(notification.timestamp)}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-1">
+                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mb-1">
                       {notification.lastMessage}
                     </p>
                     {notification.unreadCount > 0 && (
-                      <span className="inline-block px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full">
+                      <span className="inline-block px-1.5 sm:px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-[10px] sm:text-xs font-medium rounded-full">
                         {notification.unreadCount} nouveau{notification.unreadCount > 1 ? 'x' : ''}
                       </span>
                     )}

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import "./globals.css";
@@ -11,6 +11,13 @@ export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: "B2B Chat - Real-time Chat Application",
   description: "Real-time chat application with one-on-one and group conversations",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 const geistSans = Geist({

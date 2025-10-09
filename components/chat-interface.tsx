@@ -11,7 +11,8 @@ import {
   Users, 
   Plus, 
   Search,
-  User
+  User,
+  ArrowLeft
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -124,9 +125,13 @@ export const ChatInterface = ({ username }: ChatInterfaceProps) => {
   const activeConv = conversations.find(conv => conv.id === activeConversation)
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <div className="w-80 border-r border-border bg-muted/30 flex flex-col">
+    <div className="flex h-screen bg-background overflow-hidden">
+      {/* Sidebar - Hidden on mobile when chat is active */}
+      <div className={cn(
+        "w-full sm:w-80 border-r border-border bg-muted/30 flex flex-col",
+        "transition-transform duration-300 ease-in-out",
+        activeConversation ? "hidden sm:flex" : "flex"
+      )}>
         {/* Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-4">
@@ -337,24 +342,35 @@ export const ChatInterface = ({ username }: ChatInterfaceProps) => {
         </div>
       </div>
 
-      {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      {/* Main Chat Area - Full width on mobile when conversation is active */}
+      <div className={cn(
+        "flex-1 flex flex-col",
+        activeConversation ? "flex w-full sm:w-auto" : "hidden sm:flex"
+      )}>
         {activeConv ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-border bg-muted/30">
+            <div className="p-3 sm:p-4 border-b border-border bg-muted/30">
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveConversation(null)}
+                  className="sm:hidden p-2 mr-2"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                </Button>
                 {activeConv.type === 'direct' ? (
                   <User className="w-5 h-5 text-muted-foreground" />
                 ) : (
                   <Users className="w-5 h-5 text-muted-foreground" />
                 )}
-                <h2 className="text-lg font-semibold">{activeConv.name}</h2>
-                <Badge variant="outline" className="text-xs">
+                <h2 className="text-base sm:text-lg font-semibold truncate">{activeConv.name}</h2>
+                <Badge variant="outline" className="text-xs hidden sm:inline-flex">
                   {activeConv.type === 'direct' ? 'Direct' : 'Group'}
                 </Badge>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground ml-0 sm:ml-0">
                 {activeConv.participants.length} participant{activeConv.participants.length !== 1 ? 's' : ''}
               </p>
             </div>
@@ -368,11 +384,11 @@ export const ChatInterface = ({ username }: ChatInterfaceProps) => {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center p-4">
             <div className="text-center">
               <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
-              <p className="text-muted-foreground">
+              <h3 className="text-base sm:text-lg font-medium mb-2">Select a conversation</h3>
+              <p className="text-muted-foreground text-sm">
                 Choose a conversation from the sidebar to start chatting
               </p>
             </div>

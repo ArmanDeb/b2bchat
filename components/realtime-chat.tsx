@@ -84,21 +84,21 @@ export const RealtimeChat = ({
     <div className="flex flex-col h-full w-full bg-background text-foreground antialiased">
       {/* Connection Status */}
       {!isConnected && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm text-yellow-800">
+        <div className="bg-yellow-50 border-b border-yellow-200 px-3 sm:px-4 py-2 text-xs sm:text-sm text-yellow-800">
           Connecting to chat...
         </div>
       )}
 
       {/* Messages */}
-      <div ref={containerRef} className="flex-1 overflow-y-auto p-6">
+      <div ref={containerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
         {allMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
-                <Send className="w-8 h-8 text-muted-foreground" />
+            <div className="text-center px-4">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-muted flex items-center justify-center">
+                <Send className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
               </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">No messages yet</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">No messages yet</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Start the conversation by sending a message below
               </p>
             </div>
@@ -127,13 +127,13 @@ export const RealtimeChat = ({
       </div>
 
       {/* Message Input */}
-      <div className="border-t border-border bg-background p-4">
-        <form onSubmit={handleSendMessage} className="flex w-full gap-3">
+      <div className="border-t border-border bg-background p-3 sm:p-4">
+        <form onSubmit={handleSendMessage} className="flex w-full gap-2 sm:gap-3">
           <div className="flex-1 relative">
             <Input
               className={cn(
-                'rounded-full bg-muted/50 border-0 pr-12 text-sm transition-all duration-300 focus:bg-background focus:border-border',
-                isConnected && newMessage.trim() ? 'w-full' : 'w-full'
+                'rounded-full bg-muted/50 border-0 pr-3 text-sm transition-all duration-300 focus:bg-background focus:border-border',
+                'h-10 sm:h-auto'
               )}
               type="text"
               value={newMessage}
@@ -144,11 +144,11 @@ export const RealtimeChat = ({
           </div>
           {isConnected && newMessage.trim() && (
             <Button
-              className="rounded-full aspect-square p-0 w-10 h-10 animate-in fade-in slide-in-from-right-4 duration-300"
+              className="rounded-full aspect-square p-0 w-10 h-10 shrink-0 animate-in fade-in slide-in-from-right-4 duration-300"
               type="submit"
               disabled={!isConnected}
             >
-              <Send className="size-4" />
+              <Send className="w-4 h-4" />
             </Button>
           )}
         </form>
