@@ -68,7 +68,12 @@ export const OneOnOneChat = ({
     [newMessage, isConnected, sendMessage]
   )
 
-  const handleDeleteConversation = useCallback(() => {
+  const handleDeleteConversation = useCallback((e?: Event) => {
+    // Prevent multiple triggers
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
     if (!conversationId || !onDeleteConversation) return
     // Just call the parent handler - it will show the confirmation dialog
     onDeleteConversation(conversationId)
@@ -221,7 +226,10 @@ export const OneOnOneChat = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={handleDeleteConversation}
+                onSelect={(e) => {
+                  e.preventDefault()
+                  handleDeleteConversation()
+                }}
                 className="text-red-600 focus:text-red-600 focus:bg-red-50"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -252,14 +260,6 @@ export const OneOnOneChat = ({
               const prevMessage = index > 0 ? messages[index - 1] : null
               const showHeader = !prevMessage || prevMessage.sender_id !== message.sender_id
               const isOwnMessage = message.sender_id === user?.id
-              
-              // Debug log
-              console.log('Message:', {
-                content: message.content.substring(0, 20),
-                sender_id: message.sender_id,
-                current_user_id: user?.id,
-                isOwnMessage
-              })
 
               return (
                 <div

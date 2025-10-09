@@ -1,7 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useUser } from './use-user'
 import type { Conversation } from './use-conversations'
 
@@ -37,6 +37,54 @@ export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: 
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const userCacheRef = useRef<Map<string, any>>(new Map())
+
+  // Pre-cache current user
+  useEffect(() => {
+    if (user && !userCacheRef.current.has(user.id)) {
+      userCacheRef.current.set(user.id, {
+        id: user.id,
+        username: user.user_metadata?.username || user.email || 'Unknown',
+        display_name: user.user_metadata?.display_name,
+        avatar_url: user.user_metadata?.avatar_url
+      })
+      console.log('[Cache] Preloaded current user')
+    }
+  }, [user])
+
+  // Get user data from cache (synchronous when cached)
+  const getUserDataSync = useCallback((userId: string) => {
+    if (userCacheRef.current.has(userId)) {
+      return userCacheRef.current.get(userId)
+    }
+    return null
+  }, [])
+
+  // Get user data with caching (async fallback)
+  const getUserData = useCallback(async (userId: string) => {
+    // Check cache first
+    const cached = getUserDataSync(userId)
+    if (cached) {
+      console.log('[Cache] User data found in cache for:', userId)
+      return cached
+    }
+
+    console.log('[Cache] Fetching user data from database for:', userId)
+    // Fetch from database
+    const { data: senderData } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (senderData) {
+      // Update cache
+      userCacheRef.current.set(userId, senderData)
+      return senderData
+    }
+
+    return null
+  }, [supabase, getUserDataSync])
 
   // Get or create conversation
   const getOrCreateConversation = useCallback(async () => {
@@ -86,6 +134,32 @@ export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: 
 
         if (participantError) throw participantError
         data = participantData
+        
+        // Pre-cache both participants
+        if (data.participant1) {
+          userCacheRef.current.set(data.participant1.id, data.participant1)
+        }
+        if (data.participant2) {
+          userCacheRef.current.set(data.participant2.id, data.participant2)
+        }
+        console.log('[Cache] Preloaded 2 participants for one-on-one conversation')
+      } else {
+        // For group conversations, preload all participants
+        const { data: participantsData } = await supabase
+          .rpc('get_conversation_participants', { conversation_id_param: convId })
+        
+        if (participantsData) {
+          // Cache all participants
+          participantsData.forEach((p: any) => {
+            userCacheRef.current.set(p.participant_id, {
+              id: p.participant_id,
+              username: p.username,
+              display_name: p.display_name,
+              avatar_url: p.avatar_url
+            })
+          })
+          console.log(`[Cache] Preloaded ${participantsData.length} participants for group conversation`)
+        }
       }
 
       if (data) {
@@ -167,6 +241,12 @@ export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: 
             avatar_url: msg.sender.avatar_url
           }
         }))
+        
+        // Pre-populate user cache with sender data
+        data.forEach(msg => {
+          userCacheRef.current.set(msg.sender.id, msg.sender)
+        })
+        
         setMessages(formattedMessages)
       }
     } catch (err) {
@@ -242,6 +322,8 @@ export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: 
   useEffect(() => {
     if (!conversation) return
 
+    console.log(`[RealTime] Setting up subscription for conversation ${conversation.id} (${conversation.is_group ? 'group' : 'one-on-one'})`)
+
     const channel = supabase
       .channel(`conversation:${conversation.id}`)
       .on(
@@ -253,14 +335,20 @@ export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: 
           filter: `conversation_id=eq.${conversation.id}`
         },
         async (payload) => {
+          const startTime = performance.now()
+          console.log('[RealTime] New message received:', payload.new)
           const newMessage = payload.new as any
           
-          // Fetch the sender details
-          const { data: senderData } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', newMessage.sender_id)
-            .single()
+          // Try to get sender details from cache first (synchronous)
+          let senderData = getUserDataSync(newMessage.sender_id)
+          
+          if (!senderData) {
+            // Fallback to async fetch if not in cache
+            console.log('[RealTime] Sender not in cache, fetching...')
+            senderData = await getUserData(newMessage.sender_id)
+          } else {
+            console.log('[RealTime] Sender found in cache (instant)')
+          }
 
           if (senderData) {
             const formattedMessage: ChatMessage = {
@@ -282,8 +370,11 @@ export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: 
             setMessages(prev => {
               // Avoid duplicates
               if (prev.some(msg => msg.id === formattedMessage.id)) {
+                console.log('[RealTime] Message already exists, skipping')
                 return prev
               }
+              const elapsed = performance.now() - startTime
+              console.log(`[RealTime] Message added to state in ${elapsed.toFixed(2)}ms`)
               return [...prev, formattedMessage]
             })
 
@@ -295,13 +386,15 @@ export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: 
         }
       )
       .subscribe((status) => {
+        console.log(`[RealTime] Subscription status changed to: ${status}`)
         setIsConnected(status === 'SUBSCRIBED')
       })
 
     return () => {
+      console.log('[RealTime] Cleaning up subscription')
       supabase.removeChannel(channel)
     }
-  }, [conversation, user, supabase, markAsRead])
+  }, [conversation, user, supabase, markAsRead, getUserData, getUserDataSync])
 
   // Initialize conversation and load data
   useEffect(() => {

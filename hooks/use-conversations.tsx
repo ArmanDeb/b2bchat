@@ -649,9 +649,23 @@ export function useConversations() {
           const newConversation = payload.new as any
           // Only show conversation to the creator, not the receiver until a message is sent
           if (newConversation && newConversation.participant1_id === user.id) {
-            console.log('New conversation created by user:', user.id, newConversation)
+            console.log('[Conversations] New conversation created by user:', user.id, newConversation)
             loadConversations(false) // Silent update
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversation_participants',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('[Conversations] User added to a new group conversation:', payload.new)
+          // User was added to a group - reload conversations immediately
+          loadConversations(false) // Silent update
         }
       )
       .on(
@@ -677,32 +691,54 @@ export function useConversations() {
           schema: 'public',
           table: 'messages'
         },
-        (payload) => {
+        async (payload) => {
           const newMessage = payload.new as any
-          console.log('New message detected:', newMessage)
+          console.log('[Messages Subscription] New message detected:', newMessage)
           // Check if this message is in a conversation the user participates in
           if (newMessage && newMessage.conversation_id) {
             // First, check if the user is a participant in this conversation
-            supabase
+            const { data: convData } = await supabase
               .from('conversations')
-              .select('participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2')
+              .select('id, participant1_id, participant2_id, deleted_by_participant1, deleted_by_participant2, is_group')
               .eq('id', newMessage.conversation_id)
               .single()
-              .then(async ({ data: convData }) => {
-                if (convData && (convData.participant1_id === user.id || convData.participant2_id === user.id)) {
-                  console.log('Message is in user\'s conversation, checking if restoration needed...')
-                  
-                  // Try to auto-restore the conversation if it was soft-deleted
-                  const wasRestored = await autoRestoreConversation(newMessage.conversation_id)
-                  
-                  if (wasRestored) {
-                    console.log('Conversation was auto-restored due to new message')
-                  }
-                  
-                  // Reload conversations to show the restored conversation
-                  loadConversations(false) // Silent update
+            
+            if (!convData) return
+            
+            let isParticipant = false
+            
+            // Check if user is participant (one-on-one or group)
+            if (!convData.is_group) {
+              // One-on-one conversation
+              isParticipant = convData.participant1_id === user.id || convData.participant2_id === user.id
+            } else {
+              // Group conversation - check conversation_participants
+              const { data: participantData } = await supabase
+                .from('conversation_participants')
+                .select('user_id')
+                .eq('conversation_id', newMessage.conversation_id)
+                .eq('user_id', user.id)
+                .eq('deleted_by_user', false)
+                .is('left_at', null)
+                .maybeSingle()
+              
+              isParticipant = !!participantData
+            }
+            
+            if (isParticipant) {
+              console.log('[Messages Subscription] Message is in user\'s conversation, refreshing...')
+              
+              // Try to auto-restore the conversation if it was soft-deleted (one-on-one only)
+              if (!convData.is_group) {
+                const wasRestored = await autoRestoreConversation(newMessage.conversation_id)
+                if (wasRestored) {
+                  console.log('[Messages Subscription] Conversation was auto-restored due to new message')
                 }
-              })
+              }
+              
+              // Reload conversations immediately to show the new/updated conversation
+              await loadConversations(false) // Silent update
+            }
           }
         }
       )

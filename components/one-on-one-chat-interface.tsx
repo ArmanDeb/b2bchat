@@ -41,6 +41,9 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
   const [userId, setUserId] = useState<string | undefined>(undefined)
   const supabase = createClient()
   
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
+  
   // Charger l'ID utilisateur
   useEffect(() => {
     const loadUser = async () => {
@@ -57,10 +60,11 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     removeToastNotification,
     markAllAsRead,
     markConversationAsRead
-  } = useNotifications({ userId, conversations })
-
-  const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
+  } = useNotifications({ 
+    userId, 
+    conversations,
+    activeConversationId // Ne pas afficher de notifications pour la conversation active
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [showUserList, setShowUserList] = useState(false)
   const [isCreatingGroup, setIsCreatingGroup] = useState(false)
@@ -132,7 +136,15 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     router.push('/auth/login')
   }
 
+  const [isDeletingConversation, setIsDeletingConversation] = useState(false)
+  
   const handleDeleteConversation = async (conversationId: string) => {
+    // Prevent multiple simultaneous deletions
+    if (isDeletingConversation) {
+      console.log('[Delete] Already processing a deletion, skipping...')
+      return
+    }
+    
     const conversation = conversations.find(c => c.id === conversationId)
     const isGroup = conversation?.is_group
     
@@ -141,13 +153,18 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
       : 'Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.'
     
     if (window.confirm(confirmMessage)) {
-      const success = await deleteConversation(conversationId)
-      if (success) {
-        // If the deleted conversation was active, clear the active conversation
-        if (activeConversationId === conversationId) {
-          setActiveConversationId(null)
-          setActiveConversation(null)
+      setIsDeletingConversation(true)
+      try {
+        const success = await deleteConversation(conversationId)
+        if (success) {
+          // If the deleted conversation was active, clear the active conversation
+          if (activeConversationId === conversationId) {
+            setActiveConversationId(null)
+            setActiveConversation(null)
+          }
         }
+      } finally {
+        setIsDeletingConversation(false)
       }
     }
   }
