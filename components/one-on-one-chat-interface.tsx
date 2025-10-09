@@ -1,9 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useConversations, type Conversation } from '@/hooks/use-conversations'
 import { OneOnOneChat } from '@/components/one-on-one-chat'
 import { GroupChatSelector } from '@/components/group-chat-selector'
+import { NotificationBell } from '@/components/notification-bell'
+import { NotificationToastContainer } from '@/components/notification-toast'
+import { useNotifications } from '@/hooks/use-notifications'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -34,6 +37,27 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     loadConversations,
     forceRefresh
   } = useConversations()
+  
+  const [userId, setUserId] = useState<string | undefined>(undefined)
+  const supabase = createClient()
+  
+  // Charger l'ID utilisateur
+  useEffect(() => {
+    const loadUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUserId(user?.id)
+    }
+    loadUser()
+  }, [supabase])
+  
+  // Hook de notifications
+  const {
+    toastNotifications,
+    unreadNotifications,
+    removeToastNotification,
+    markAllAsRead,
+    markConversationAsRead
+  } = useNotifications({ userId, conversations })
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null)
@@ -41,7 +65,6 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
   const [showUserList, setShowUserList] = useState(false)
   const [isCreatingGroup, setIsCreatingGroup] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   const filteredUsers = users.filter(user =>
     user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -64,15 +87,23 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     }
   }
 
-  const handleSelectConversation = (conversationId: string) => {
+  const handleSelectConversation = async (conversationId: string) => {
     const conversation = conversations.find(c => c.id === conversationId)
     setActiveConversationId(conversationId)
     setActiveConversation(conversation || null)
+    // Marquer la conversation comme lue
+    await markConversationAsRead(conversationId)
+    // Rafraîchir les conversations pour mettre à jour le compteur
+    await loadConversations(false)
   }
 
   const handleBack = () => {
     setActiveConversationId(null)
     setActiveConversation(null)
+  }
+  
+  const handleNotificationClick = (conversationId: string) => {
+    handleSelectConversation(conversationId)
   }
 
   const handleLogout = async () => {
@@ -101,26 +132,39 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <div className="w-80 border-r border-border bg-muted/30 flex flex-col">
-        {/* Header */}
-        <div className="p-4 border-b border-border">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold">Messages</h1>
-              {isRefreshing && (
-                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => forceRefresh()}
-                variant="ghost"
-                className="rounded-full"
-                title="Refresh conversations"
-              >
+    <>
+      {/* Notifications Toast */}
+      <NotificationToastContainer
+        notifications={toastNotifications}
+        onRemove={removeToastNotification}
+        onNotificationClick={handleNotificationClick}
+      />
+    
+      <div className="flex h-screen bg-background">
+        {/* Sidebar */}
+        <div className="w-80 border-r border-border bg-muted/30 flex flex-col">
+          {/* Header */}
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold">Messages</h1>
+                {isRefreshing && (
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <NotificationBell
+                  notifications={unreadNotifications}
+                  onNotificationClick={handleNotificationClick}
+                  onMarkAllAsRead={markAllAsRead}
+                />
+                <Button
+                  size="sm"
+                  onClick={() => forceRefresh()}
+                  variant="ghost"
+                  className="rounded-full"
+                  title="Refresh conversations"
+                >
                 🔄
               </Button>
               <Button
@@ -224,11 +268,6 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
                               conversation.other_user.is_online ? "bg-green-500" : "bg-gray-400"
                             )} />
                           )}
-                          {conversation.unread_count > 0 && (
-                            <Badge variant="destructive" className="text-xs">
-                              {conversation.unread_count}
-                            </Badge>
-                          )}
                         </div>
                       </div>
                       
@@ -307,5 +346,6 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
         )}
       </div>
     </div>
+    </>
   )
 }
