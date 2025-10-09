@@ -58,10 +58,10 @@ export const GroupChatSelector = ({
   const canCreate = selectedUserIds.length > 0
 
   return (
-    <Card className="m-2 sm:m-4 p-3 sm:p-4 max-w-full">
-      <div className="space-y-3 sm:space-y-4">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+    <Card className="m-2 sm:m-4 max-w-full flex flex-col h-[calc(100vh-2rem)] sm:h-[calc(100vh-4rem)] max-h-[600px]">
+      {/* Header - Fixed */}
+      <div className="p-3 sm:p-4 border-b shrink-0">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
             <h3 className="font-medium text-sm sm:text-base">
@@ -80,7 +80,7 @@ export const GroupChatSelector = ({
 
         {/* Group Name Input (only for groups) */}
         {isGroupChat && (
-          <div>
+          <div className="mb-3">
             <Input
               placeholder="Nom du groupe (optionnel)"
               value={groupName}
@@ -103,14 +103,16 @@ export const GroupChatSelector = ({
 
         {/* Selected Count */}
         {selectedUserIds.length > 0 && (
-          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mt-3">
             <Check className="w-3 h-3 sm:w-4 sm:h-4" />
             {selectedUserIds.length} {selectedUserIds.length === 1 ? 'personne sélectionnée' : 'personnes sélectionnées'}
           </div>
         )}
+      </div>
 
-        {/* User List */}
-        <div className="space-y-2 max-h-60 sm:max-h-80 overflow-y-auto">
+      {/* User List - Scrollable */}
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+        <div className="space-y-2">
           {filteredUsers.map((user) => {
             const isSelected = selectedUserIds.includes(user.id)
             
@@ -119,7 +121,8 @@ export const GroupChatSelector = ({
                 key={user.id}
                 onClick={() => handleToggleUser(user.id)}
                 className={cn(
-                  "flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg cursor-pointer transition-colors border",
+                  "flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg cursor-pointer border",
+                  "transition-colors duration-100",
                   isSelected 
                     ? "bg-primary/10 border-primary/30" 
                     : "hover:bg-muted/50 border-transparent"
@@ -166,9 +169,11 @@ export const GroupChatSelector = ({
             </div>
           )}
         </div>
+      </div>
 
-        {/* Create Button */}
-        <div className="flex gap-2 pt-3 sm:pt-4 border-t">
+      {/* Create Button - Fixed at bottom */}
+      <div className="p-3 sm:p-4 border-t shrink-0 bg-background">
+        <div className="flex gap-2">
           <Button
             variant="outline"
             onClick={onBack}

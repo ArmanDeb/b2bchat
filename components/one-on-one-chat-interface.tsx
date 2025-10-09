@@ -68,6 +68,7 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
   const [searchQuery, setSearchQuery] = useState('')
   const [showUserList, setShowUserList] = useState(false)
   const [isCreatingGroup, setIsCreatingGroup] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const router = useRouter()
 
   const filteredUsers = users.filter(user =>
@@ -179,22 +180,25 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
       />
     
       <div className="flex h-screen bg-background overflow-hidden">
-        {/* Sidebar - Hidden on mobile when chat is active */}
+        {/* Sidebar - Can be collapsed on desktop, hidden on mobile when chat is active */}
         <div className={cn(
-          "w-full sm:w-80 border-r border-border bg-muted/30 flex flex-col",
-          "transition-transform duration-300 ease-in-out",
-          activeConversationId ? "hidden sm:flex" : "flex"
+          "border-r border-border bg-muted/30 flex flex-col transition-all duration-300",
+          // Mobile behavior
+          activeConversationId ? "hidden sm:flex" : "flex w-full",
+          // Desktop behavior
+          "sm:w-80 lg:w-96",
+          isSidebarCollapsed && activeConversationId && "sm:w-0 sm:overflow-hidden"
         )}>
           {/* Header */}
-          <div className="p-4 border-b border-border">
-            <div className="flex items-center justify-between mb-4">
+          <div className="p-3 sm:p-4 border-b border-border shrink-0">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold">Messages</h1>
+                <h1 className="text-lg sm:text-xl font-bold">Messages</h1>
                 {isRefreshing && (
-                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-3 h-3 sm:w-4 sm:h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-1 sm:gap-2">
                 <NotificationBell
                   notifications={unreadNotifications}
                   onNotificationClick={handleNotificationClick}
@@ -204,7 +208,7 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
                   size="sm"
                   onClick={() => forceRefresh()}
                   variant="ghost"
-                  className="rounded-full"
+                  className="rounded-full h-8 w-8 sm:h-9 sm:w-9 p-0"
                   title="Refresh conversations"
                 >
                 🔄
@@ -213,21 +217,21 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
                 size="sm"
                 onClick={() => setShowUserList(!showUserList)}
                 variant="outline"
-                className="rounded-full"
+                className="rounded-full h-8 w-8 sm:h-9 sm:w-9 p-0"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
               </Button>
             </div>
           </div>
           
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+          <div className="relative px-3 sm:px-4 pb-3 shrink-0">
+            <Search className="absolute left-6 sm:left-7 top-1/2 transform -translate-y-1/2 text-muted-foreground w-3 h-3 sm:w-4 sm:h-4" />
             <Input
-              placeholder="Search conversations..."
+              placeholder="Rechercher..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-8 sm:pl-10 h-9 text-sm"
             />
           </div>
         </div>
@@ -246,42 +250,43 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="p-4 text-center text-muted-foreground">
-              Loading conversations...
+              <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+              <p className="text-sm">Chargement...</p>
             </div>
           ) : conversations.length === 0 ? (
-            <div className="p-4 text-center text-muted-foreground">
-              <MessageCircle className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-              <p>No conversations yet</p>
-              <p className="text-sm">Start a new chat to begin messaging</p>
+            <div className="p-6 text-center text-muted-foreground">
+              <MessageCircle className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
+              <p className="font-medium mb-1">Aucune conversation</p>
+              <p className="text-xs sm:text-sm">Commencez une nouvelle discussion</p>
             </div>
           ) : (
-            <div className="p-2">
+            <div className="p-2 sm:p-3">
               {conversations.map((conversation) => (
                 <div
                   key={conversation.id}
                   onClick={() => handleSelectConversation(conversation.id)}
                   className={cn(
-                    "p-3 rounded-lg cursor-pointer transition-colors mb-2",
-                    "hover:bg-muted/50",
+                    "p-2.5 sm:p-3 rounded-xl cursor-pointer mb-2",
+                    "hover:bg-muted/50 active:scale-[0.98]",
                     activeConversationId === conversation.id 
-                      ? "bg-primary/10 border border-primary/20" 
-                      : "hover:bg-muted/30"
+                      ? "bg-primary/10 ring-1 ring-primary/20" 
+                      : ""
                   )}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                     {conversation.is_group ? (
-                      <div className="relative">
-                        <Avatar className="w-10 h-10">
+                      <div className="relative shrink-0">
+                        <Avatar className="w-9 h-9 sm:w-11 sm:h-11">
                           <AvatarFallback className="bg-blue-500 text-white">
-                            <Users className="w-5 h-5" />
+                            <Users className="w-4 h-4 sm:w-5 sm:h-5" />
                           </AvatarFallback>
                         </Avatar>
-                        <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs">
+                        <Badge className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full p-0 flex items-center justify-center text-[10px]">
                           {conversation.participants?.length || 0}
                         </Badge>
                       </div>
                     ) : (
-                      <Avatar className="w-10 h-10">
+                      <Avatar className="w-9 h-9 sm:w-11 sm:h-11 shrink-0">
                         <AvatarImage src={conversation.other_user?.avatar_url} />
                         <AvatarFallback>
                           {conversation.other_user?.display_name?.[0] || 
@@ -291,30 +296,23 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
                     )}
                     
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium truncate">
-                            {conversation.is_group 
-                              ? conversation.name 
-                              : (conversation.other_user?.display_name || conversation.other_user?.username)
-                            }
-                          </span>
-                          {conversation.is_group && (
-                            <Users className="w-3 h-3 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {!conversation.is_group && conversation.other_user && (
-                            <div className={cn(
-                              "w-2 h-2 rounded-full",
-                              conversation.other_user.is_online ? "bg-green-500" : "bg-gray-400"
-                            )} />
-                          )}
-                        </div>
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="font-semibold text-sm sm:text-base truncate">
+                          {conversation.is_group 
+                            ? conversation.name 
+                            : (conversation.other_user?.display_name || conversation.other_user?.username)
+                          }
+                        </span>
+                        {!conversation.is_group && conversation.other_user && (
+                          <div className={cn(
+                            "w-1.5 h-1.5 rounded-full shrink-0",
+                            conversation.other_user.is_online ? "bg-green-500" : "bg-gray-400"
+                          )} />
+                        )}
                       </div>
                       
                       {conversation.last_message && (
-                        <p className="text-sm text-muted-foreground truncate mt-1">
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">
                           {conversation.is_group && conversation.last_message.sender_name && (
                             <span className="font-medium">
                               {conversation.last_message.sender_name}: 
@@ -325,11 +323,20 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
                       )}
                       
                       {conversation.last_message && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(conversation.last_message.created_at).toLocaleTimeString()}
+                        <p className="text-[10px] sm:text-xs text-muted-foreground/70 mt-0.5">
+                          {new Date(conversation.last_message.created_at).toLocaleTimeString('fr-FR', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </p>
                       )}
                     </div>
+                    
+                    {conversation.unread_count > 0 && (
+                      <Badge className="h-5 min-w-[20px] rounded-full px-1.5 text-xs shrink-0 bg-primary">
+                        {conversation.unread_count}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))}
@@ -338,21 +345,20 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
         </div>
 
         {/* User Info */}
-        <div className="p-4 border-t border-border">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Avatar className="w-8 h-8">
-                <AvatarFallback>
-                  {username[0]?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="font-medium">{username}</span>
-            </div>
+        <div className="p-3 sm:p-4 border-t border-border shrink-0 bg-background/50">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Avatar className="w-8 h-8 sm:w-9 sm:h-9 shrink-0">
+              <AvatarFallback className="bg-primary/10 text-primary">
+                {username[0]?.toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="font-medium text-sm sm:text-base truncate flex-1">{username}</span>
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={handleLogout}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground shrink-0 h-8 w-8 sm:h-9 sm:w-9"
+              title="Déconnexion"
             >
               <LogOut className="w-4 h-4" />
             </Button>
@@ -373,14 +379,18 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
             onBack={handleBack}
             onDeleteConversation={handleDeleteConversation}
             onMessageSent={() => loadConversations(false)}
+            onToggleSidebar={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            isSidebarCollapsed={isSidebarCollapsed}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center p-4">
-            <div className="text-center">
-              <MessageCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">Sélectionner une conversation</h3>
-              <p className="text-muted-foreground mb-4 text-sm sm:text-base">
-                Choisissez une conversation dans la barre latérale pour commencer à discuter
+          <div className="flex-1 flex items-center justify-center p-4 sm:p-8">
+            <div className="text-center max-w-md">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 sm:mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+                <MessageCircle className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
+              </div>
+              <h3 className="text-base sm:text-lg font-semibold mb-2">Sélectionner une conversation</h3>
+              <p className="text-muted-foreground mb-4 sm:mb-6 text-xs sm:text-sm">
+                Choisissez une conversation dans la liste ou créez-en une nouvelle pour commencer à discuter
               </p>
               <Button onClick={() => setShowUserList(true)} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />

@@ -129,7 +129,6 @@ export const ChatInterface = ({ username }: ChatInterfaceProps) => {
       {/* Sidebar - Hidden on mobile when chat is active */}
       <div className={cn(
         "w-full sm:w-80 border-r border-border bg-muted/30 flex flex-col",
-        "transition-transform duration-300 ease-in-out",
         activeConversation ? "hidden sm:flex" : "flex"
       )}>
         {/* Header */}

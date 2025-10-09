@@ -87,19 +87,19 @@ export const RealtimeChat = ({
         {!isConnected && allMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center px-4">
-              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-              <p className="text-xs sm:text-sm text-muted-foreground">Chargement...</p>
+              <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-sm text-muted-foreground">Connexion...</p>
             </div>
           </div>
         ) : allMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center px-4">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-muted flex items-center justify-center">
-                <Send className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+            <div className="text-center px-4 max-w-md">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                <Send className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
               </div>
-              <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">No messages yet</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Start the conversation by sending a message below
+              <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Aucun message</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Commencez la conversation en envoyant un message ci-dessous
               </p>
             </div>
           </div>

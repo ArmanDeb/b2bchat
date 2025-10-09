@@ -5,7 +5,7 @@ import { useChatScroll } from '@/hooks/use-chat-scroll'
 import { useUser } from '@/hooks/use-user'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Send, ArrowLeft, MoreVertical, Trash2, Users } from 'lucide-react'
+import { Send, ArrowLeft, MoreVertical, Trash2, Users, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { ChatMessageItem } from '@/components/chat-message'
@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
-import type { Conversation, User } from '@/hooks/use-conversations'
+import type { Conversation } from '@/hooks/use-conversations'
 
 interface OneOnOneChatProps {
   conversationId?: string
@@ -26,6 +26,8 @@ interface OneOnOneChatProps {
   onBack?: () => void
   onDeleteConversation?: (conversationId: string) => void
   onMessageSent?: () => void // Callback to notify parent when message is sent
+  onToggleSidebar?: () => void
+  isSidebarCollapsed?: boolean
 }
 
 export const OneOnOneChat = ({ 
@@ -34,7 +36,9 @@ export const OneOnOneChat = ({
   otherUserId, 
   onBack,
   onDeleteConversation,
-  onMessageSent
+  onMessageSent,
+  onToggleSidebar,
+  isSidebarCollapsed
 }: OneOnOneChatProps) => {
   const { user } = useUser()
   const { containerRef, scrollToBottom } = useChatScroll()
@@ -135,95 +139,95 @@ export const OneOnOneChat = ({
   return (
     <div className="flex flex-col h-full w-full bg-background text-foreground antialiased">
       {/* Chat Header */}
-      <div className="border-b border-border bg-muted/30 p-3 sm:p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-            {onBack && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onBack}
-                className="p-1.5 sm:p-2 shrink-0"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            )}
-            
-            {activeConversation.is_group ? (
-              <div className="relative shrink-0">
-                <Avatar className="w-8 h-8 sm:w-10 sm:h-10">
-                  <AvatarFallback className="bg-blue-500 text-white">
-                    <Users className="w-4 h-4 sm:w-5 sm:h-5" />
-                  </AvatarFallback>
-                </Avatar>
-              </div>
-            ) : (
-              <Avatar className="w-8 h-8 sm:w-10 sm:h-10 shrink-0">
-                <AvatarImage src={activeConversation.other_user?.avatar_url} />
-                <AvatarFallback>
-                  {activeConversation.other_user?.display_name?.[0] || 
-                   activeConversation.other_user?.username[0]?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-            )}
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1 sm:gap-2">
-                <h2 className="font-semibold text-sm sm:text-base truncate">
-                  {activeConversation.is_group 
-                    ? activeConversation.name
-                    : (activeConversation.other_user?.display_name || activeConversation.other_user?.username)
-                  }
-                </h2>
-                
-                {activeConversation.is_group ? (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Users className="w-3 h-3 text-muted-foreground hidden sm:block" />
-                    <span className="text-xs text-muted-foreground">
-                      {activeConversation.participants?.length || 0}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full",
-                      activeConversation.other_user?.is_online ? "bg-green-500" : "bg-gray-400"
-                    )} />
-                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                      {activeConversation.other_user?.is_online ? 'En ligne' : 'Hors ligne'}
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              {activeConversation.is_group && activeConversation.participants && (
-                <p className="text-xs text-muted-foreground truncate hidden sm:block">
-                  {activeConversation.participants.slice(0, 3).map((p: User) => p.username).join(', ')}
-                  {activeConversation.participants.length > 3 && ` et ${activeConversation.participants.length - 3} autres`}
-                </p>
+      <div className="border-b border-border bg-muted/30 p-2 sm:p-4">
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          {/* Mobile back button */}
+          {onBack && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="p-1.5 shrink-0 sm:hidden"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          )}
+          
+          {/* Desktop sidebar toggle button */}
+          {onToggleSidebar && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleSidebar}
+              className="hidden sm:flex shrink-0 h-8 w-8"
+              title={isSidebarCollapsed ? "Afficher la sidebar" : "Masquer la sidebar"}
+            >
+              {isSidebarCollapsed ? (
+                <PanelLeftOpen className="w-4 h-4" />
+              ) : (
+                <PanelLeftClose className="w-4 h-4" />
               )}
+            </Button>
+          )}
+          
+          {activeConversation.is_group ? (
+            <Avatar className="w-8 h-8 sm:w-10 sm:h-10 shrink-0">
+              <AvatarFallback className="bg-blue-500 text-white">
+                <Users className="w-4 h-4 sm:w-5 sm:h-5" />
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <Avatar className="w-8 h-8 sm:w-10 sm:h-10 shrink-0">
+              <AvatarImage src={activeConversation.other_user?.avatar_url} />
+              <AvatarFallback>
+                {activeConversation.other_user?.display_name?.[0] || 
+                 activeConversation.other_user?.username[0]?.toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          )}
+          
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h2 className="font-semibold text-sm sm:text-base truncate">
+                {activeConversation.is_group 
+                  ? activeConversation.name
+                  : (activeConversation.other_user?.display_name || activeConversation.other_user?.username)
+                }
+              </h2>
               
-              {!activeConversation.is_group && !activeConversation.other_user?.is_online && (
-                <p className="text-xs text-muted-foreground hidden sm:block truncate">
-                  Vu {new Date(activeConversation.other_user?.last_seen || '').toLocaleString()}
-                </p>
+              {!activeConversation.is_group && activeConversation.other_user && (
+                <div className={cn(
+                  "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full shrink-0",
+                  activeConversation.other_user.is_online ? "bg-green-500" : "bg-gray-400"
+                )} />
               )}
             </div>
+            
+            <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
+              {activeConversation.is_group && activeConversation.participants
+                ? `${activeConversation.participants.length} membres`
+                : activeConversation.other_user?.is_online ? 'En ligne' : 'Hors ligne'
+              }
+            </p>
           </div>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="p-1.5 sm:p-2 shrink-0">
-                <MoreVertical className="w-4 h-4" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="shrink-0 h-8 w-8 sm:h-10 sm:w-10 ml-auto"
+              >
+                <MoreVertical className="w-4 h-4 sm:w-5 sm:h-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault()
                   handleDeleteConversation()
                 }}
-                className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
               >
                 <Trash2 className="mr-2 h-4 w-4" />
                 {activeConversation.is_group ? 'Quitter le groupe' : 'Supprimer la conversation'}
@@ -238,19 +242,19 @@ export const OneOnOneChat = ({
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center px-4">
-              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-              <p className="text-xs sm:text-sm text-muted-foreground">Chargement...</p>
+              <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-sm text-muted-foreground">Chargement des messages...</p>
             </div>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center px-4">
-              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-muted flex items-center justify-center">
-                <Send className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+            <div className="text-center px-4 max-w-md">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+                <Send className="w-8 h-8 sm:w-10 sm:h-10 text-primary" />
               </div>
-              <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">Aucun message</h3>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Commencez la conversation en envoyant un message ci-dessous
+              <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Aucun message</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Commencez la conversation en envoyant votre premier message ci-dessous
               </p>
             </div>
           </div>

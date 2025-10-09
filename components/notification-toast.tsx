@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { X } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 
@@ -24,6 +24,13 @@ export function NotificationToast({ notification, onClose, onClick }: Notificati
   const [isVisible, setIsVisible] = useState(false)
   const [isLeaving, setIsLeaving] = useState(false)
 
+  const handleClose = useCallback(() => {
+    setIsLeaving(true)
+    setTimeout(() => {
+      onClose()
+    }, 300)
+  }, [onClose])
+
   useEffect(() => {
     // Animation d'entrée
     setTimeout(() => setIsVisible(true), 10)
@@ -34,14 +41,7 @@ export function NotificationToast({ notification, onClose, onClick }: Notificati
     }, 5000)
 
     return () => clearTimeout(timer)
-  }, [])
-
-  const handleClose = () => {
-    setIsLeaving(true)
-    setTimeout(() => {
-      onClose()
-    }, 300)
-  }
+  }, [handleClose])
 
   const handleClick = () => {
     onClick()
