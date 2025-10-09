@@ -191,8 +191,8 @@ export function useConversations() {
               .select('*', { count: 'exact', head: true })
               .eq('conversation_id', conv.id)
 
-            // Only show conversation if it has messages OR if the current user is participant1 (creator)
-            const shouldShowConversation = (messageCount && messageCount > 0) || conv.participant1_id === user.id
+            // Only show conversation if it has messages OR if the current user is the creator
+            const shouldShowConversation = (messageCount && messageCount > 0) || conv.created_by === user.id
             
             if (!shouldShowConversation) {
               continue // Skip this conversation
@@ -287,10 +287,10 @@ export function useConversations() {
         
         if (deletedByCurrentUser) {
           console.log('Restoring soft-deleted conversation')
-          // Restore the conversation for the current user
+          // Restore the conversation for the current user AND update created_by
           const updateData = isParticipant1 
-            ? { deleted_by_participant1: false, updated_at: new Date().toISOString() }
-            : { deleted_by_participant2: false, updated_at: new Date().toISOString() }
+            ? { deleted_by_participant1: false, created_by: user.id, updated_at: new Date().toISOString() }
+            : { deleted_by_participant2: false, created_by: user.id, updated_at: new Date().toISOString() }
 
           const { error: restoreError } = await supabase
             .from('conversations')
@@ -302,7 +302,7 @@ export function useConversations() {
             throw restoreError
           }
 
-          console.log('Conversation restored successfully')
+          console.log('Conversation restored successfully with new creator')
           // Reload conversations to update the sidebar
           await loadConversations(false) // Silent update
           return existingConv.id
@@ -315,7 +315,8 @@ export function useConversations() {
         // No existing conversation, create a new one
         const { data, error } = await supabase.rpc('get_or_create_conversation', {
           user1_id: user.id,
-          user2_id: otherUserId
+          user2_id: otherUserId,
+          creator_id: user.id
         })
 
         if (error) throw error

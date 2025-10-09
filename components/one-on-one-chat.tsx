@@ -70,16 +70,9 @@ export const OneOnOneChat = ({
 
   const handleDeleteConversation = useCallback(() => {
     if (!conversationId || !onDeleteConversation) return
-    
-    const isGroup = activeConversation?.is_group
-    const confirmMessage = isGroup 
-      ? 'Êtes-vous sûr de vouloir quitter ce groupe ? Vous pourrez être réinvité par un admin.'
-      : 'Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.'
-    
-    if (window.confirm(confirmMessage)) {
-      onDeleteConversation(conversationId)
-    }
-  }, [conversationId, onDeleteConversation, activeConversation])
+    // Just call the parent handler - it will show the confirmation dialog
+    onDeleteConversation(conversationId)
+  }, [conversationId, onDeleteConversation])
 
   if (isLoading) {
     return (
@@ -259,6 +252,14 @@ export const OneOnOneChat = ({
               const prevMessage = index > 0 ? messages[index - 1] : null
               const showHeader = !prevMessage || prevMessage.sender_id !== message.sender_id
               const isOwnMessage = message.sender_id === user?.id
+              
+              // Debug log
+              console.log('Message:', {
+                content: message.content.substring(0, 20),
+                sender_id: message.sender_id,
+                current_user_id: user?.id,
+                isOwnMessage
+              })
 
               return (
                 <div
@@ -274,7 +275,7 @@ export const OneOnOneChat = ({
                       },
                       createdAt: message.created_at
                     }}
-                    isOwnMessage={!isOwnMessage}
+                    isOwnMessage={isOwnMessage}
                     showHeader={showHeader}
                   />
                 </div>

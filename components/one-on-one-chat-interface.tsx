@@ -76,12 +76,33 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
     try {
       const conversationId = await createGroupConversation(participantIds, groupName)
       if (conversationId) {
-        // Find the conversation to get full details
-        const conversation = conversations.find(c => c.id === conversationId)
-        setActiveConversationId(conversationId)
-        setActiveConversation(conversation || null)
+        console.log('Conversation created/found with ID:', conversationId)
+        
+        // Close the user list first
         setShowUserList(false)
+        
+        // Set the conversation ID immediately so the chat interface can load it
+        setActiveConversationId(conversationId)
+        
+        // Wait a bit for the conversation to be fully created, then reload
+        await new Promise(resolve => setTimeout(resolve, 300))
+        await loadConversations(false)
+        
+        // Now find the conversation in the updated list
+        setTimeout(() => {
+          const conversation = conversations.find(c => c.id === conversationId)
+          if (conversation) {
+            console.log('Found conversation in state:', conversation)
+            setActiveConversation(conversation)
+          } else {
+            console.log('Conversation not found in state, will be loaded by OneOnOneChat hook')
+            // The OneOnOneChat component will load it via useOneOnOneChat hook
+            setActiveConversation(null)
+          }
+        }, 100)
       }
+    } catch (error) {
+      console.error('Error in handleCreateGroup:', error)
     } finally {
       setIsCreatingGroup(false)
     }
@@ -320,11 +341,11 @@ export const OneOnOneChatInterface = ({ username }: OneOnOneChatInterfaceProps) 
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {activeConversationId && activeConversation ? (
+        {activeConversationId ? (
           <OneOnOneChat
             conversationId={activeConversationId}
-            conversation={activeConversation}
-            otherUserId={activeConversation.is_group ? undefined : activeConversation.other_user?.id}
+            conversation={activeConversation || undefined}
+            otherUserId={activeConversation?.is_group ? undefined : activeConversation?.other_user?.id}
             onBack={handleBack}
             onDeleteConversation={handleDeleteConversation}
             onMessageSent={() => loadConversations(false)}

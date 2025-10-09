@@ -45,7 +45,8 @@ export function useOneOnOneChat({ conversationId, otherUserId, onMessageSent }: 
     try {
       const { data, error } = await supabase.rpc('get_or_create_conversation', {
         user1_id: user.id,
-        user2_id: otherUserId
+        user2_id: otherUserId,
+        creator_id: user.id
       })
 
       if (error) throw error
