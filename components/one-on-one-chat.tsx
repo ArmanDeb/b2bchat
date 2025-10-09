@@ -134,13 +134,6 @@ export const OneOnOneChat = ({
 
   return (
     <div className="flex flex-col h-full w-full bg-background text-foreground antialiased">
-      {/* Connection Status */}
-      {!isConnected && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-4 py-2 text-sm text-yellow-800">
-          Connecting to chat...
-        </div>
-      )}
-
       {/* Chat Header */}
       <div className="border-b border-border bg-muted/30 p-3 sm:p-4">
         <div className="flex items-center justify-between">

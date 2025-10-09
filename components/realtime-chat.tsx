@@ -82,13 +82,6 @@ export const RealtimeChat = ({
 
   return (
     <div className="flex flex-col h-full w-full bg-background text-foreground antialiased">
-      {/* Connection Status */}
-      {!isConnected && (
-        <div className="bg-yellow-50 border-b border-yellow-200 px-3 sm:px-4 py-2 text-xs sm:text-sm text-yellow-800">
-          Connecting to chat...
-        </div>
-      )}
-
       {/* Messages */}
       <div ref={containerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
         {allMessages.length === 0 ? (
