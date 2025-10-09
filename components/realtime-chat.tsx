@@ -84,7 +84,14 @@ export const RealtimeChat = ({
     <div className="flex flex-col h-full w-full bg-background text-foreground antialiased">
       {/* Messages */}
       <div ref={containerRef} className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
-        {allMessages.length === 0 ? (
+        {!isConnected && allMessages.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center px-4">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-xs sm:text-sm text-muted-foreground">Chargement...</p>
+            </div>
+          </div>
+        ) : allMessages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center px-4">
               <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-muted flex items-center justify-center">
