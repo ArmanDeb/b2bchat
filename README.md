@@ -6,6 +6,10 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/votre-username/b2bchat/actions"><img src="https://github.com/votre-username/b2bchat/actions/workflows/ci.yml/badge.svg" alt="CI Status"></a>
+</p>
+
+<p align="center">
   Application de chat en temps réel pour entreprises avec authentification et gestion des conversations
 </p>
 
@@ -111,6 +115,24 @@ b2bchat/
 - **Tailwind CSS** - Framework CSS
 - **shadcn/ui** - Composants UI
 - **Vercel** - Plateforme de déploiement
+
+## CI/CD
+
+Le projet utilise **GitHub Actions** pour l'intégration continue. À chaque push ou pull request vers `main`, le workflow CI exécute automatiquement :
+
+- ✅ **Linting** - Vérifie la qualité du code avec ESLint
+- ✅ **Type Checking** - Valide les types TypeScript
+- ✅ **Build** - S'assure que le projet se compile correctement
+
+Le statut de la CI est visible via le badge en haut de ce README.
+
+### Configuration des secrets GitHub
+
+Pour que la CI fonctionne complètement, ajoutez ces secrets dans GitHub :
+1. Allez dans **Settings** > **Secrets and variables** > **Actions**
+2. Ajoutez :
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
 ## Support
 
